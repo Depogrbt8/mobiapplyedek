@@ -147,14 +147,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minHeight: 44,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    height: 48,
+    maxWidth: '100%',
+    alignSelf: 'center',
+    width: '99.5%',
   },
   buttonText: {
     fontSize: 14,
@@ -258,4 +258,6 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
   },
 });
+
+
 

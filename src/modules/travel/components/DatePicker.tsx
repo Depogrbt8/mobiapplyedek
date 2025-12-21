@@ -157,7 +157,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         disabled={disabled}
         style={[styles.inputContainer, disabled && styles.inputContainerDisabled]}
       >
-        <Ionicons name="calendar" size={20} color={colors.primary[600]} style={styles.icon} />
+        <Ionicons name="calendar-outline" size={18} color={colors.text.primary} style={styles.icon} />
         <Text style={[styles.inputText, !value && styles.placeholder, disabled && styles.inputTextDisabled]}>
           {displayValue || placeholder}
         </Text>
@@ -250,7 +250,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
   label: {
     fontSize: 14,
@@ -267,21 +267,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minHeight: 56,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    height: 48,
+    maxWidth: '100%',
+    alignSelf: 'center',
+    width: '99.5%',
   },
   inputContainerDisabled: {
     backgroundColor: colors.gray[100],
     opacity: 0.5,
   },
   icon: {
-    marginRight: 16,
+    marginRight: 12,
   },
   inputText: {
     flex: 1,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   placeholder: {
-    color: colors.text.secondary,
+    color: colors.gray[600],
   },
   inputTextDisabled: {
     color: colors.text.disabled,

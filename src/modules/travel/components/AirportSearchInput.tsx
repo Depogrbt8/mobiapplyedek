@@ -10,6 +10,7 @@ interface AirportSearchInputProps {
   value: Airport | null;
   onSelect: (airport: Airport) => void;
   placeholder?: string;
+  iconType?: 'departure' | 'arrival'; // Kalkış veya iniş ikonu
 }
 
 export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
@@ -17,6 +18,7 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
   value,
   onSelect,
   placeholder = 'Havalimanı ara...',
+  iconType = 'departure',
 }) => {
   const [query, setQuery] = useState(value ? `${value.name} (${value.code})` : '');
   const [results, setResults] = useState<Airport[]>([]);
@@ -67,13 +69,20 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputContainer}>
-        <Ionicons name="location" size={20} color={colors.primary[600]} style={styles.icon} />
+        <View style={[styles.iconContainer, iconType === 'arrival' && styles.iconContainerArrival]}>
+          <Ionicons 
+            name="airplane-outline" 
+            size={18} 
+            color={colors.text.primary} 
+            style={styles.icon} 
+          />
+        </View>
         <TextInput
           style={styles.input}
           value={query}
           onChangeText={setQuery}
           placeholder={placeholder}
-          placeholderTextColor={colors.text.secondary}
+          placeholderTextColor={colors.gray[600]}
           onFocus={handleFocus}
         />
         {isSearching && (
@@ -110,7 +119,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     zIndex: 1,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   label: {
     fontSize: 14,
@@ -124,17 +133,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minHeight: 56,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    height: 48,
+    maxWidth: '100%',
+    alignSelf: 'center',
+    width: '99.5%',
+  },
+  iconContainer: {
+    transform: [{ rotate: '-45deg' }], // Kalkış - yukarı-sağa yönlü
+    marginRight: 12,
+  },
+  iconContainerArrival: {
+    transform: [{ rotate: '135deg' }], // İniş - aşağı-sola yönlü
   },
   icon: {
-    marginRight: 16,
+    // İkon kendisi
   },
   input: {
     flex: 1,

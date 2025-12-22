@@ -77,3 +77,5 @@ export type CarReservation = {
 
 export type TabType = 'ucak' | 'otel' | 'arac' | 'esim';
 
+
+

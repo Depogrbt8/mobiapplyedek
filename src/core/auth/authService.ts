@@ -11,7 +11,15 @@ export const authService = {
    * Login with email and password
    */
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/api/auth/mobile-login', credentials);
+    // config.API_URL already includes '/api', so we only need '/auth/mobile-login'
+    const response = await apiClient.post<LoginResponse>('/auth/mobile-login', credentials);
+    
+    console.log('🔐 Login response:', {
+      success: response.data.success,
+      hasAccessToken: !!response.data.accessToken,
+      hasRefreshToken: !!response.data.refreshToken,
+      hasUser: !!response.data.user,
+    });
     
     if (response.data.success) {
       // Store tokens
@@ -21,6 +29,9 @@ export const authService = {
       );
       // Store user data
       await secureStorage.setUserData(JSON.stringify(response.data.user));
+      console.log('✅ Tokens saklandı');
+    } else {
+      console.error('❌ Login başarısız:', response.data);
     }
     
     return response.data;
@@ -30,7 +41,8 @@ export const authService = {
    * Register new user
    */
   async register(data: RegisterData): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.post('/api/auth/register', {
+    // config.API_URL already includes '/api', so we only need '/auth/register'
+    const response = await apiClient.post('/auth/register', {
       name: data.name,
       email: data.email,
       password: data.password,
@@ -47,7 +59,8 @@ export const authService = {
       throw new Error('No refresh token available');
     }
 
-    const response = await apiClient.post<RefreshTokenResponse>('/api/auth/refresh', {
+    // config.API_URL already includes '/api', so we only need '/auth/refresh'
+    const response = await apiClient.post<RefreshTokenResponse>('/auth/refresh', {
       refreshToken,
     });
 
@@ -85,4 +98,5 @@ export const authService = {
     return !!token;
   },
 };
+
 

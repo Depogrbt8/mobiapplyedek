@@ -8,9 +8,11 @@ import { HomeContent } from './components';
 import { FlightSearchScreen } from '@/modules/travel/screens/FlightSearchScreen';
 import { HotelSearchScreen } from '@/modules/travel/screens/HotelSearchScreen';
 import { CarSearchScreen } from '@/modules/travel/screens/CarSearchScreen';
+import { ESIMScreen } from '@/screens/esim/ESIMScreen';
 
 export const HomeScreen: React.FC = () => {
-  const { selectedService } = useHomeStore();
+  const homeStore = useHomeStore();
+  const selectedService = homeStore?.selectedService || 'home';
 
   const renderContent = () => {
     switch (selectedService) {
@@ -21,7 +23,7 @@ export const HomeScreen: React.FC = () => {
       case 'car':
         return <CarSearchScreen />;
       case 'esim':
-        return <HomeContent />; // TODO: E SIM servisi eklenecek
+        return <ESIMScreen />;
       case 'home':
       default:
         return <HomeContent />;

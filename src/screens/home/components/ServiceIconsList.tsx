@@ -11,6 +11,10 @@ interface ServiceIconsListProps {
 export const ServiceIconsList: React.FC<ServiceIconsListProps> = ({ services }) => {
   const servicesScrollViewRef = useRef<ScrollView>(null);
 
+  if (!Array.isArray(services) || services.length === 0) {
+    return null;
+  }
+
   return (
     <View
       style={homeScreenStyles.servicesContent}
@@ -45,11 +49,14 @@ export const ServiceIconsList: React.FC<ServiceIconsListProps> = ({ services }) 
           }
         }}
       >
-        {services.map((service) => (
-          <ServiceIcon key={service.id} service={service} />
-        ))}
+        {services.map((service) => {
+          if (!service || !service.id) return null;
+          return <ServiceIcon key={service.id} service={service} />;
+        })}
       </ScrollView>
     </View>
   );
 };
+
+
 

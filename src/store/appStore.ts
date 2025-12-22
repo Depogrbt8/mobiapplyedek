@@ -32,3 +32,5 @@ export const useAppStore = create<AppState>((set) => ({
   setIsOnline: (value) => set({ isOnline: value }),
 }));
 
+
+

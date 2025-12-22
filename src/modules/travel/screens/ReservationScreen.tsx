@@ -1,37 +1,49 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Text,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Modal,
+  TouchableOpacity,
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { Ionicons } from '@expo/vector-icons';
 import { useTravelStore } from '../store/travelStore';
 import { reservationService } from '../services/reservationService';
-import { formatCurrency, formatTime, formatDate } from '@/utils/format';
 import type { TravelStackParamList } from '@/core/navigation/types';
 import { colors } from '@/constants/colors';
-import type { PassengerFormData } from '@/types/passenger';
+import {
+  FlightDetailsCard,
+  ContactForm,
+  PassengerList,
+  BaggageSelection,
+  PriceSummary,
+  type PassengerDetail,
+} from '../components/booking';
+import { passengerService } from '@/services/passengerService';
 
 type RouteProp = RouteProp<TravelStackParamList, 'Travel/Reservation'>;
 type NavigationProp = NativeStackNavigationProp<TravelStackParamList, 'Travel/Reservation'>;
 
-const passengerSchema = z.object({
-  firstName: z.string().min(2, 'Ad en az 2 karakter olmalı'),
-  lastName: z.string().min(2, 'Soyad en az 2 karakter olmalı'),
-  identityNumber: z.string().min(11, 'TC Kimlik No 11 karakter olmalı'),
-  birthDay: z.string().min(1, 'Doğum günü seçin'),
-  birthMonth: z.string().min(1, 'Doğum ayı seçin'),
-  birthYear: z.string().min(4, 'Doğum yılı seçin'),
-  countryCode: z.string().min(2, 'Ülke kodu seçin'),
-  phone: z.string().min(10, 'Telefon numarası geçerli değil'),
-  gender: z.enum(['male', 'female'], { required_error: 'Cinsiyet seçin' }),
-});
-
-type PassengerFormType = z.infer<typeof passengerSchema>;
+const initialPassengerState: PassengerDetail = {
+  id: null,
+  firstName: '',
+  lastName: '',
+  birthDay: '',
+  birthMonth: '',
+  birthYear: '',
+  gender: '',
+  identityNumber: '',
+  isForeigner: false,
+  shouldSave: false,
+  type: 'Yetişkin',
+};
 
 export const ReservationScreen: React.FC = () => {
   const route = useRoute<RouteProp>();
@@ -41,32 +53,254 @@ export const ReservationScreen: React.FC = () => {
 
   const flight = selectedFlight || route.params?.flight;
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<PassengerFormType>({
-    resolver: zodResolver(passengerSchema),
-    defaultValues: {
-      countryCode: 'TR',
-      gender: 'male',
-    },
-  });
+  // State management
+  const [passengers, setPassengers] = useState({ adults: 1, children: 0, infants: 0 });
+  const [savedPassengers, setSavedPassengers] = useState<any[]>([]);
+  const [passengerDetails, setPassengerDetails] = useState<PassengerDetail[]>([]);
+  const [baggageSelections, setBaggageSelections] = useState<any[]>([]);
+  const [totalBaggagePrice, setTotalBaggagePrice] = useState(0);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+90');
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [bookingType, setBookingType] = useState<'reserve' | 'book'>('book');
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
-  const onSubmit = async (data: PassengerFormType) => {
+  // Initialize passengers from flight data
+  useEffect(() => {
+    if (flight) {
+      // Get passenger count from flight or default to 1
+      const totalPassengers = (flight as any).passengers || 1;
+      const adults = totalPassengers;
+      const children = 0;
+      const infants = 0;
+
+      setPassengers({ adults, children, infants });
+      const total = adults + children;
+
+      // Initialize passenger details
+      const newPassengerDetails: PassengerDetail[] = Array(total).fill(null).map((_, i) => ({
+        ...initialPassengerState,
+        type: i < adults ? ('Yetişkin' as const) : ('Çocuk' as const),
+      }));
+      setPassengerDetails(newPassengerDetails);
+      setBaggageSelections(Array(total).fill(null).map(() => [{ weight: 20, label: '20 kg Bagaj (Standart)', price: 0 }]));
+    }
+  }, [flight]);
+
+  // Load saved passengers
+  useEffect(() => {
+    const loadSavedPassengers = async () => {
+      try {
+        const passengers = await passengerService.getPassengers();
+        setSavedPassengers(passengers);
+      } catch (error) {
+        // Silently fail if user is not logged in
+        console.log('Could not load saved passengers');
+      }
+    };
+    loadSavedPassengers();
+  }, []);
+
+  const handlePassengerFormChange = (passengerIndex: number, field: string, value: any) => {
+    const newDetails = [...passengerDetails];
+
+    // If isForeigner is set to true, clear identityNumber
+    if (field === 'isForeigner' && value === true) {
+      newDetails[passengerIndex] = {
+        ...newDetails[passengerIndex],
+        [field]: value,
+        identityNumber: '',
+      };
+    } else {
+      newDetails[passengerIndex] = { ...newDetails[passengerIndex], [field]: value };
+    }
+
+    setPassengerDetails(newDetails);
+  };
+
+  const handleSelectSavedPassenger = (passengerIndex: number, passengerData: any | null) => {
+    const newDetails = [...passengerDetails];
+    if (passengerData) {
+      newDetails[passengerIndex] = {
+        ...passengerData,
+        shouldSave: false,
+        type: newDetails[passengerIndex].type,
+        isForeigner: Boolean(passengerData.isForeigner),
+      };
+    } else {
+      newDetails[passengerIndex] = { ...initialPassengerState, type: newDetails[passengerIndex].type };
+    }
+    setPassengerDetails(newDetails);
+  };
+
+  const handleSaveToggle = async (passengerIndex: number, checked: boolean) => {
+    const newDetails = [...passengerDetails];
+    newDetails[passengerIndex].shouldSave = checked;
+    setPassengerDetails(newDetails);
+
+    // If checked and passenger has required fields, save immediately
+    if (checked && newDetails[passengerIndex].firstName && newDetails[passengerIndex].lastName) {
+      await savePassenger(passengerIndex, newDetails[passengerIndex]);
+    }
+  };
+
+  const savePassenger = async (passengerIndex: number, passengerData: PassengerDetail) => {
+    try {
+      const payload: any = {
+        firstName: passengerData.firstName,
+        lastName: passengerData.lastName,
+        birthDay: passengerData.birthDay,
+        birthMonth: passengerData.birthMonth,
+        birthYear: passengerData.birthYear,
+        gender: passengerData.gender as 'male' | 'female',
+        identityNumber: passengerData.identityNumber || null,
+        isForeigner: passengerData.isForeigner || false,
+        countryCode: 'TR', // Default
+      };
+
+      if (passengerData.id) {
+        // Update existing
+        const updated = await passengerService.updatePassenger(passengerData.id, payload);
+        const newDetails = [...passengerDetails];
+        newDetails[passengerIndex] = { ...newDetails[passengerIndex], ...updated };
+        setPassengerDetails(newDetails);
+      } else {
+        // Create new
+        const newPassenger = await passengerService.addPassenger(payload);
+        const newDetails = [...passengerDetails];
+        newDetails[passengerIndex] = { ...newDetails[passengerIndex], id: newPassenger.id };
+        setPassengerDetails(newDetails);
+        setSavedPassengers((prev) => [newPassenger, ...prev]);
+      }
+    } catch (error: any) {
+      console.error('Error saving passenger:', error);
+    }
+  };
+
+  const handleBaggageChange = (passengerIndex: number, legIndex: number, baggage: any) => {
+    const newSelections = [...baggageSelections];
+    if (!newSelections[passengerIndex]) newSelections[passengerIndex] = [];
+    newSelections[passengerIndex][legIndex] = baggage;
+    setBaggageSelections(newSelections);
+
+    // Recalculate total baggage price
+    const total = newSelections.flat().reduce((acc, val) => acc + (val?.price || 0), 0);
+    setTotalBaggagePrice(total);
+  };
+
+  const validateForm = (): string[] => {
+    const errors: string[] = [];
+
+    // Contact info validation
+    if (!contactEmail || !contactEmail.includes('@')) {
+      errors.push('Geçerli bir e-posta adresi giriniz');
+    }
+
+    if (!contactPhone) {
+      errors.push('Telefon numarası giriniz');
+    }
+
+    // Passenger validation
+    passengerDetails.forEach((passenger, index) => {
+      if (!passenger.firstName.trim()) {
+        errors.push(`${index + 1}. yolcu için ad giriniz`);
+      }
+      if (!passenger.lastName.trim()) {
+        errors.push(`${index + 1}. yolcu için soyad giriniz`);
+      }
+      if (!passenger.birthDay || !passenger.birthMonth || !passenger.birthYear) {
+        errors.push(`${index + 1}. yolcu için doğum tarihi giriniz`);
+      }
+      if (!passenger.gender) {
+        errors.push(`${index + 1}. yolcu için cinsiyet seçiniz`);
+      }
+      // TC kimlik numarası validasyonu - sadece T.C. vatandaşları için
+      const isForeigner = Boolean(passenger.isForeigner);
+      const hasIdentityNumber = passenger.identityNumber.trim().length > 0;
+
+      if (!isForeigner && !hasIdentityNumber) {
+        errors.push(`${index + 1}. yolcu için TC kimlik numarası giriniz`);
+      }
+    });
+
+    return errors;
+  };
+
+  const handleProceedToPayment = async () => {
+    // Validate form
+    const errors = validateForm();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      return;
+    }
+
+    if (!termsAccepted) {
+      Alert.alert('Hata', 'Devam etmek için lütfen kullanım koşullarını kabul edin.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Create flight reservation
+      // Save passengers if needed
+      const savePromises = passengerDetails
+        .filter((p) => p.shouldSave)
+        .map((p, idx) => {
+          const passengerIndex = passengerDetails.findIndex((pd) => pd === p);
+          return savePassenger(passengerIndex, p);
+        });
+      await Promise.all(savePromises);
+
+      // Create reservation/order
+      // TODO: Integrate with BiletDukkani API
       const reservation = await reservationService.createFlightReservation({
         type: 'flight',
         flightId: flight.id,
-        passenger: data,
-        amount: flight.price,
-        currency: flight.currency,
+        passengers: passengerDetails.map((p) => ({
+          firstName: p.firstName,
+          lastName: p.lastName,
+          birthDay: p.birthDay,
+          birthMonth: p.birthMonth,
+          birthYear: p.birthYear,
+          gender: p.gender as 'male' | 'female',
+          identityNumber: p.identityNumber,
+          isForeigner: p.isForeigner || false,
+        })),
+        contactInfo: {
+          email: contactEmail,
+          phone: contactPhone,
+          countryCode,
+        },
+        baggageSelections,
+        bookingType,
+        marketingConsent,
+        amount: finalTotalPrice,
+        currency: flight.currency || 'EUR',
       });
+
+      if (bookingType === 'reserve') {
+        // Show reservation modal
+        Alert.alert(
+          'Rezervasyon Başarılı',
+          `PNR: ${reservation.pnr || 'N/A'}\nGeçerlilik: ${reservation.validUntil || 'N/A'}`,
+          [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        // Navigate to payment
       navigation.navigate('Travel/Payment', {
-        reservationData: { reservation, flight, passenger: data, type: 'flight' },
-      });
+          reservationData: {
+            reservation,
+            flight,
+            passengers: passengerDetails,
+            contactInfo: { email: contactEmail, phone: contactPhone, countryCode },
+            baggageSelections,
+            type: 'flight',
+          },
+        });
+      }
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'Rezervasyon oluşturulamadı');
     } finally {
@@ -78,134 +312,104 @@ export const ReservationScreen: React.FC = () => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Uçuş bilgisi bulunamadı</Text>
-        <Button title="Geri" onPress={() => navigation.goBack()} />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>Geri</Text>
+        </TouchableOpacity>
       </View>
     );
   }
+
+  const totalPassengers = passengers.adults + passengers.children;
+  const baseTotalPrice = (flight.price || 0) * totalPassengers;
+  const taxes = baseTotalPrice * 0.1;
+  const finalTotalPrice = baseTotalPrice + taxes + totalBaggagePrice;
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.flightSummary}>
-          <Text style={styles.sectionTitle}>Uçuş Özeti</Text>
-          <View style={styles.flightInfo}>
-            <View style={styles.routeInfo}>
-              <Text style={styles.airport}>{flight.origin}</Text>
-              <Text style={styles.arrow}>→</Text>
-              <Text style={styles.airport}>{flight.destination}</Text>
-            </View>
-            <Text style={styles.flightDetails}>
-              {formatTime(flight.departureTime)} - {formatDate(flight.departureTime)}
-            </Text>
-            <Text style={styles.price}>{formatCurrency(flight.price, flight.currency)}</Text>
-          </View>
-        </Card>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Flight Details */}
+        <FlightDetailsCard flight={flight} />
 
-        <View style={styles.form}>
-          <Text style={styles.sectionTitle}>Yolcu Bilgileri</Text>
+        {/* Contact Form */}
+        <ContactForm
+          userEmail={contactEmail}
+          userPhone={contactPhone}
+          onEmailChange={setContactEmail}
+          onPhoneChange={setContactPhone}
+          onCountryCodeChange={setCountryCode}
+          countryCode={countryCode}
+          marketingConsent={marketingConsent}
+          onMarketingConsentChange={setMarketingConsent}
+        />
 
-          <View style={styles.nameRow}>
-            <View style={styles.nameInput}>
-              <Input
-                label="Ad"
-                placeholder="Adınız"
-                control={control}
-                name="firstName"
-                autoCapitalize="words"
-                error={errors.firstName?.message}
-              />
-            </View>
-            <View style={styles.nameInput}>
-              <Input
-                label="Soyad"
-                placeholder="Soyadınız"
-                control={control}
-                name="lastName"
-                autoCapitalize="words"
-                error={errors.lastName?.message}
-              />
-            </View>
-          </View>
+        {/* Passenger List */}
+        <PassengerList
+          passengers={passengers}
+          passengerDetails={passengerDetails}
+          savedPassengers={savedPassengers}
+          flight={flight}
+          onSelectSavedPassenger={handleSelectSavedPassenger}
+          onPassengerFormChange={handlePassengerFormChange}
+          onSaveToggle={handleSaveToggle}
+        />
 
-          <Input
-            label="TC Kimlik No"
-            placeholder="11 haneli TC Kimlik No"
-            control={control}
-            name="identityNumber"
-            keyboardType="number-pad"
-            maxLength={11}
-            error={errors.identityNumber?.message}
-          />
+        {/* Baggage Selection */}
+        <BaggageSelection
+          passengers={passengerDetails}
+          flight={flight}
+          onBaggageChange={handleBaggageChange}
+          baggageSelections={baggageSelections}
+        />
 
-          <View style={styles.dateRow}>
-            <View style={styles.dateInput}>
-              <Input
-                label="Doğum Günü"
-                placeholder="Gün"
-                control={control}
-                name="birthDay"
-                keyboardType="number-pad"
-                maxLength={2}
-                error={errors.birthDay?.message}
-              />
-            </View>
-            <View style={styles.dateInput}>
-              <Input
-                label="Doğum Ayı"
-                placeholder="Ay"
-                control={control}
-                name="birthMonth"
-                keyboardType="number-pad"
-                maxLength={2}
-                error={errors.birthMonth?.message}
-              />
-            </View>
-            <View style={styles.dateInput}>
-              <Input
-                label="Doğum Yılı"
-                placeholder="Yıl"
-                control={control}
-                name="birthYear"
-                keyboardType="number-pad"
-                maxLength={4}
-                error={errors.birthYear?.message}
-              />
-            </View>
-          </View>
-
-          <View style={styles.genderRow}>
-            <Text style={styles.label}>Cinsiyet</Text>
-            <View style={styles.genderButtons}>
-              <TouchableOpacity style={styles.genderButton}>
-                <Text style={styles.genderButtonText}>Erkek</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.genderButton}>
-                <Text style={styles.genderButtonText}>Kadın</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <Input
-            label="Telefon"
-            placeholder="5XX XXX XX XX"
-            control={control}
-            name="phone"
-            keyboardType="phone-pad"
-            error={errors.phone?.message}
-          />
-
-          <Button
-            title="Devam Et - Ödeme"
-            onPress={handleSubmit(onSubmit)}
-            loading={isLoading}
-            fullWidth
-            style={styles.submitButton}
-          />
-        </View>
+        {/* Price Summary */}
+        <PriceSummary
+          totalPassengers={totalPassengers}
+          baseTotalPrice={baseTotalPrice}
+          totalBaggagePrice={totalBaggagePrice}
+          taxes={taxes}
+          finalTotalPrice={finalTotalPrice}
+          termsAccepted={termsAccepted}
+          bookingType={bookingType}
+          onTermsChange={setTermsAccepted}
+          onBookingTypeChange={setBookingType}
+          onProceedToPayment={handleProceedToPayment}
+        />
       </ScrollView>
+
+      {/* Validation Modal */}
+      <Modal
+        visible={showValidationModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowValidationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Lütfen Düzeltin</Text>
+              <TouchableOpacity onPress={() => setShowValidationModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.errorsList}>
+              {validationErrors.map((error, index) => (
+                <Text key={index} style={styles.errorItem}>
+                  • {error}
+                </Text>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowValidationModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -216,7 +420,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 16,
+    padding: 8,
+    paddingBottom: 32,
   },
   errorContainer: {
     flex: 1,
@@ -228,89 +433,62 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.text.secondary,
     marginBottom: 24,
+    textAlign: 'center',
   },
-  flightSummary: {
-    marginBottom: 24,
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.primary[600],
+    borderRadius: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
+  backButtonText: {
+    color: colors.text.inverse,
+    fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  flightInfo: {
-    gap: 8,
-  },
-  routeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  airport: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text.primary,
-  },
-  arrow: {
+  modalTitle: {
     fontSize: 18,
-    color: colors.text.secondary,
-  },
-  flightDetails: {
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
-  price: {
-    fontSize: 24,
     fontWeight: '700',
-    color: colors.primary[600],
-    marginTop: 8,
-  },
-  form: {
-    gap: 16,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  nameInput: {
-    flex: 1,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  dateInput: {
-    flex: 1,
-  },
-  genderRow: {
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
     color: colors.text.primary,
+  },
+  errorsList: {
+    maxHeight: 300,
+    marginBottom: 16,
+  },
+  errorItem: {
+    fontSize: 14,
+    color: colors.error,
     marginBottom: 8,
+    lineHeight: 20,
   },
-  genderButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  genderButton: {
-    flex: 1,
+  modalButton: {
+    backgroundColor: colors.primary[600],
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    backgroundColor: colors.background,
     alignItems: 'center',
   },
-  genderButtonText: {
+  modalButtonText: {
+    color: colors.text.inverse,
     fontSize: 16,
-    color: colors.text.primary,
-  },
-  submitButton: {
-    marginTop: 24,
+    fontWeight: '600',
   },
 });
-

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Text, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, Text, RefreshControl, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Card } from '@/components/ui/Card';
 import { ErrorDisplay } from '@/components/common/ErrorDisplay';
+import { TabSelector, type TabType } from '@/components/common/TabSelector';
 import { reservationService } from '@/modules/travel/services/reservationService';
 import { formatDate, formatCurrency, formatTime } from '@/utils/format';
 import { colors } from '@/constants/colors';
@@ -10,20 +11,22 @@ import type { FlightReservation } from '@/types/travel';
 
 export const ReservationsHistoryScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [reservations, setReservations] = useState<FlightReservation[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('flight');
+  const [reservations, setReservations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadReservations();
-  }, []);
+  }, [activeTab]);
 
   const loadReservations = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await reservationService.getReservations('flight');
+      const type = activeTab === 'flight' ? 'flight' : activeTab === 'hotel' ? 'hotel' : 'car';
+      const data = await reservationService.getReservations(type);
       setReservations(data);
     } catch (err: any) {
       setError(err.message || 'Rezervasyonlar yüklenemedi');
@@ -38,7 +41,145 @@ export const ReservationsHistoryScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const renderReservation = ({ item }: { item: FlightReservation }) => {
+  const renderReservation = ({ item }: { item: any }) => {
+    // Uçak rezervasyonu
+    if (activeTab === 'flight') {
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            // Navigate to reservation details
+          }}
+        >
+          <Card style={styles.reservationCard}>
+            <View style={styles.reservationHeader}>
+              <View>
+                <Text style={styles.pnr}>{item.pnr || item.id}</Text>
+                <Text style={styles.route}>
+                  {item.origin || item.from} → {item.destination || item.to}
+                </Text>
+              </View>
+              <View style={styles.statusContainer}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    item.status === 'confirmed' && styles.statusBadgeSuccess,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      item.status === 'confirmed' && styles.statusTextSuccess,
+                    ]}
+                  >
+                    {item.status === 'confirmed' ? 'Onaylandı' : item.status || 'Beklemede'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.reservationDetails}>
+              {item.departureTime && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Tarih:</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDate(new Date(item.departureTime))}
+                  </Text>
+                </View>
+              )}
+              {item.departureTime && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Saat:</Text>
+                  <Text style={styles.detailValue}>
+                    {new Date(item.departureTime).toLocaleTimeString('tr-TR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+              )}
+              {item.airline && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Havayolu:</Text>
+                  <Text style={styles.detailValue}>{item.airline}</Text>
+                </View>
+              )}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Tutar:</Text>
+                <Text style={styles.detailValue}>
+                  {item.amount} {item.currency || 'EUR'}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </TouchableOpacity>
+      );
+    }
+
+    // Otel rezervasyonu
+    if (activeTab === 'hotel') {
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            // Navigate to reservation details
+          }}
+        >
+          <Card style={styles.reservationCard}>
+            <View style={styles.reservationHeader}>
+              <View>
+                <Text style={styles.pnr}>{item.reservationNo || item.id}</Text>
+                <Text style={styles.route}>
+                  {item.hotelName || 'Otel Rezervasyonu'}
+                </Text>
+              </View>
+              <View style={styles.statusContainer}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    item.status === 'confirmed' && styles.statusBadgeSuccess,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      item.status === 'confirmed' && styles.statusTextSuccess,
+                    ]}
+                  >
+                    {item.status === 'confirmed' ? 'Onaylandı' : item.status || 'Beklemede'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.reservationDetails}>
+              {item.checkIn && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Giriş:</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDate(new Date(item.checkIn))}
+                  </Text>
+                </View>
+              )}
+              {item.checkOut && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Çıkış:</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDate(new Date(item.checkOut))}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Tutar:</Text>
+                <Text style={styles.detailValue}>
+                  {item.amount} {item.currency || 'EUR'}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </TouchableOpacity>
+      );
+    }
+
+    // Araç rezervasyonu
     return (
       <TouchableOpacity
         onPress={() => {
@@ -48,9 +189,9 @@ export const ReservationsHistoryScreen: React.FC = () => {
         <Card style={styles.reservationCard}>
           <View style={styles.reservationHeader}>
             <View>
-              <Text style={styles.pnr}>{item.pnr}</Text>
+              <Text style={styles.pnr}>{item.reservationNo || item.id}</Text>
               <Text style={styles.route}>
-                {item.from} → {item.to}
+                {item.carName || 'Araç Rezervasyonu'}
               </Text>
             </View>
             <View style={styles.statusContainer}>
@@ -66,28 +207,34 @@ export const ReservationsHistoryScreen: React.FC = () => {
                     item.status === 'confirmed' && styles.statusTextSuccess,
                   ]}
                 >
-                  {item.status === 'confirmed' ? 'Onaylandı' : item.status}
+                  {item.status === 'confirmed' ? 'Onaylandı' : item.status || 'Beklemede'}
                 </Text>
               </View>
             </View>
           </View>
 
           <View style={styles.reservationDetails}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tarih:</Text>
-              <Text style={styles.detailValue}>{formatDate(item.date)}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Saat:</Text>
-              <Text style={styles.detailValue}>{item.time}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Havayolu:</Text>
-              <Text style={styles.detailValue}>{item.airline}</Text>
-            </View>
+            {item.pickupDate && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Alış:</Text>
+                <Text style={styles.detailValue}>
+                  {formatDate(new Date(item.pickupDate))}
+                </Text>
+              </View>
+            )}
+            {item.dropoffDate && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Teslim:</Text>
+                <Text style={styles.detailValue}>
+                  {formatDate(new Date(item.dropoffDate))}
+                </Text>
+              </View>
+            )}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Tutar:</Text>
-              <Text style={styles.detailValue}>{item.price}</Text>
+              <Text style={styles.detailValue}>
+                {item.amount} {item.currency || 'EUR'}
+              </Text>
             </View>
           </View>
         </Card>
@@ -109,6 +256,9 @@ export const ReservationsHistoryScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.tabContainer}>
+        <TabSelector activeTab={activeTab} onTabChange={setActiveTab} />
+      </View>
       <FlatList
         data={reservations}
         keyExtractor={(item) => item.id}
@@ -121,7 +271,7 @@ export const ReservationsHistoryScreen: React.FC = () => {
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Rezervasyon bulunamadı</Text>
             <Text style={styles.emptySubtext}>
-              Henüz rezervasyonunuz bulunmamaktadır
+              Henüz {activeTab === 'flight' ? 'uçak' : activeTab === 'hotel' ? 'otel' : 'araç'} rezervasyonunuz bulunmamaktadır
             </Text>
           </View>
         }
@@ -134,6 +284,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  tabContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   listContent: {
     padding: 16,
@@ -220,4 +374,5 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
 });
+
 

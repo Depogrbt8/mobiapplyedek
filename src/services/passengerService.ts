@@ -13,6 +13,7 @@ export interface Passenger {
   phone?: string;
   hasMilCard: boolean;
   isAccountOwner?: boolean;
+  isForeigner?: boolean;
 }
 
 /**
@@ -23,7 +24,7 @@ export const passengerService = {
    * Get all passengers
    */
   async getPassengers(): Promise<Passenger[]> {
-    const response = await apiClient.get<Passenger[]>('/api/passengers');
+    const response = await apiClient.get<Passenger[]>('/passengers');
     return response.data;
   },
 
@@ -31,7 +32,7 @@ export const passengerService = {
    * Add new passenger
    */
   async addPassenger(data: Partial<Passenger>): Promise<Passenger> {
-    const response = await apiClient.post<Passenger>('/api/passengers', data);
+    const response = await apiClient.post<Passenger>('/passengers', data);
     return response.data;
   },
 
@@ -39,7 +40,7 @@ export const passengerService = {
    * Update passenger
    */
   async updatePassenger(id: string, data: Partial<Passenger>): Promise<Passenger> {
-    const response = await apiClient.put<Passenger>(`/api/passengers/${id}`, data);
+    const response = await apiClient.put<Passenger>(`/passengers/${id}`, data);
     return response.data;
   },
 
@@ -47,7 +48,8 @@ export const passengerService = {
    * Delete passenger
    */
   async deletePassenger(id: string): Promise<void> {
-    await apiClient.delete(`/api/passengers/${id}`);
+    await apiClient.delete(`/passengers/${id}`);
   },
 };
+
 

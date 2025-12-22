@@ -10,7 +10,7 @@ import type { RootStackParamList } from '@/core/navigation/types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
+  const { isLoading, checkAuth } = useAuthStore();
 
   useEffect(() => {
     checkAuth();
@@ -20,14 +20,12 @@ export const AppNavigator: React.FC = () => {
     return <LoadingScreen />;
   }
 
+  // Her zaman MainNavigator'ı göster, ProfileScreen içinde authentication kontrolü yapılacak
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
-          <Stack.Screen name="Auth" component={AuthStack} />
-        ) : (
-          <Stack.Screen name="Main" component={MainNavigator} />
-        )}
+        <Stack.Screen name="Main" component={MainNavigator} />
+        <Stack.Screen name="Auth" component={AuthStack} />
       </Stack.Navigator>
     </NavigationContainer>
   );

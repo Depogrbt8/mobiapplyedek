@@ -37,7 +37,16 @@ class ModuleRegistryImpl implements ModuleRegistry {
   }
 
   getEnabledModules(): ModuleConfig[] {
-    return Array.from(this.modules.values()).filter((m) => m.enabled);
+    try {
+      const modules = Array.from(this.modules.values());
+      if (!Array.isArray(modules)) {
+        return [];
+      }
+      return modules.filter((m) => m && m.enabled === true);
+    } catch (error) {
+      console.error('Error getting enabled modules:', error);
+      return [];
+    }
   }
 
   isModuleEnabled(id: string): boolean {
@@ -88,4 +97,6 @@ moduleRegistry.register({
   enabled: false, // FAZ 7'de aktif olacak
   icon: 'users',
 });
+
+
 

@@ -4,7 +4,16 @@ import type { Flight } from '@/types/flight';
 interface CreateFlightReservationRequest {
   type: 'flight';
   flightId: string;
-  passenger: any;
+  passenger?: any; // Deprecated, use passengers instead
+  passengers?: any[];
+  contactInfo?: {
+    email: string;
+    phone: string;
+    countryCode: string;
+  };
+  baggageSelections?: any[];
+  bookingType?: 'reserve' | 'book';
+  marketingConsent?: boolean;
   amount: number;
   currency: string;
 }
@@ -51,11 +60,15 @@ export const reservationService = {
   /**
    * Create flight reservation
    */
-  async createFlightReservation(data: CreateFlightReservationRequest): Promise<ReservationResponse> {
-    const response = await apiClient.post<ReservationResponse>('/api/reservations', {
+  async createFlightReservation(data: CreateFlightReservationRequest): Promise<ReservationResponse & { pnr?: string; validUntil?: string }> {
+    const response = await apiClient.post<ReservationResponse & { pnr?: string; validUntil?: string }>('/api/reservations', {
       type: data.type,
       flightId: data.flightId,
-      passengers: [data.passenger],
+      passengers: data.passengers || (data.passenger ? [data.passenger] : []),
+      contactInfo: data.contactInfo,
+      baggageSelections: data.baggageSelections,
+      bookingType: data.bookingType || 'book',
+      marketingConsent: data.marketingConsent,
       amount: data.amount,
       currency: data.currency,
     });

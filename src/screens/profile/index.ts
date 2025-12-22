@@ -2,6 +2,7 @@
  * Profile screens exports
  */
 export * from './ProfileScreen';
+export * from './AccountInfoScreen';
 export * from './SettingsScreen';
 export * from './ReservationsHistoryScreen';
 export * from './PassengersScreen';

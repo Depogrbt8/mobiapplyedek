@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useForm } from 'react-hook-form';
@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
+import { BirthDatePicker } from '@/components/ui/BirthDatePicker';
 import { passengerService, type Passenger } from '@/services/passengerService';
 import { countries, type Country } from '@/constants/countries';
 import { colors } from '@/constants/colors';
@@ -40,6 +42,8 @@ export const AddEditPassengerScreen: React.FC = () => {
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
+    setValue,
   } = useForm<PassengerFormData>({
     resolver: zodResolver(passengerSchema),
     defaultValues: {
@@ -50,7 +54,7 @@ export const AddEditPassengerScreen: React.FC = () => {
       birthMonth: '',
       birthYear: '',
       gender: 'male',
-      countryCode: 'TR',
+      countryCode: '+90',
       phone: '',
     },
   });
@@ -83,9 +87,43 @@ export const AddEditPassengerScreen: React.FC = () => {
     }
   };
 
+  // Ülke kodları - Bayrak ve ülke ismi ile göster, duplicate'leri filtrele
+  const uniquePhoneCodes = new Map<string, { phoneCode: string; flag: string; name: string }>();
+  countries.forEach(country => {
+    if (!uniquePhoneCodes.has(country.phoneCode)) {
+      uniquePhoneCodes.set(country.phoneCode, {
+        phoneCode: country.phoneCode,
+        flag: country.flag,
+        name: country.name,
+      });
+    }
+  });
+  const countryCodeOptions = Array.from(uniquePhoneCodes.values()).map((country) => ({
+    label: `${country.flag} ${country.name} (${country.phoneCode})`,
+    value: country.phoneCode,
+  }));
+
+  // Seçili ülkenin bayrağını ve kodunu bul (kapalıyken bayrak + kod gösterilecek)
+  const selectedCountryCode = watch('countryCode');
+  const selectedCountry = countries.find(country => country.phoneCode === selectedCountryCode);
+  const countryCodeDisplayValue = selectedCountry ? `${selectedCountry.flag} ${selectedCountry.phoneCode}` : undefined;
+
   const onSubmit = async (data: PassengerFormData) => {
     setIsLoading(true);
     try {
+      // Debug: Backend'e gönderilen veriyi logla
+      console.log('📤 Backend\'e gönderilen yolcu verisi:', {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        gender: data.gender,
+        countryCode: data.countryCode,
+        phone: data.phone,
+        birthDay: data.birthDay,
+        birthMonth: data.birthMonth,
+        birthYear: data.birthYear,
+        identityNumber: data.identityNumber,
+      });
+
       if (isEditMode && passengerId) {
         await passengerService.updatePassenger(passengerId, data);
         Alert.alert('Başarılı', 'Yolcu bilgileri güncellendi', [
@@ -133,6 +171,67 @@ export const AddEditPassengerScreen: React.FC = () => {
             error={errors.lastName?.message}
           />
 
+          {/* Doğum Tarihi */}
+          <BirthDatePicker
+            label="Doğum Tarihi"
+            day={watch('birthDay')}
+            month={watch('birthMonth')}
+            year={watch('birthYear')}
+            onSelect={(day, month, year) => {
+              console.log('📅 Tarih seçildi:', { day, month, year });
+              setValue('birthDay', day);
+              setValue('birthMonth', month);
+              setValue('birthYear', year);
+            }}
+            placeholder="Doğum Tarihi"
+          />
+          {(errors.birthDay || errors.birthMonth || errors.birthYear) && (
+            <Text style={styles.errorText}>
+              {errors.birthDay?.message || errors.birthMonth?.message || errors.birthYear?.message}
+            </Text>
+          )}
+
+          {/* Cinsiyet */}
+          <Text style={styles.label}>Cinsiyet</Text>
+          <View style={styles.genderContainer}>
+            <TouchableOpacity
+              style={[
+                styles.genderOption,
+                watch('gender') === 'male' && styles.genderOptionSelected,
+              ]}
+              onPress={() => setValue('gender', 'male')}
+            >
+              <Text
+                style={[
+                  styles.genderText,
+                  watch('gender') === 'male' && styles.genderTextSelected,
+                ]}
+              >
+                Erkek
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.genderOption,
+                watch('gender') === 'female' && styles.genderOptionSelected,
+              ]}
+              onPress={() => setValue('gender', 'female')}
+            >
+              <Text
+                style={[
+                  styles.genderText,
+                  watch('gender') === 'female' && styles.genderTextSelected,
+                ]}
+              >
+                Kadın
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {errors.gender && (
+            <Text style={styles.errorText}>{errors.gender.message}</Text>
+          )}
+
+          {/* TC Kimlik No */}
           <Input
             label="TC Kimlik No (Opsiyonel)"
             placeholder="11 haneli TC kimlik numarası"
@@ -143,50 +242,31 @@ export const AddEditPassengerScreen: React.FC = () => {
             error={errors.identityNumber?.message}
           />
 
-          <View style={styles.dateRow}>
-            <View style={styles.dateItem}>
-              <Input
-                label="Gün"
-                placeholder="01"
-                control={control}
-                name="birthDay"
-                keyboardType="numeric"
-                maxLength={2}
-                error={errors.birthDay?.message}
+          {/* Telefon */}
+          <Text style={styles.label}>Telefon (Opsiyonel)</Text>
+          <View style={styles.phoneContainer}>
+            <View style={styles.countryCodeContainer}>
+              <Select
+                value={selectedCountryCode}
+                options={countryCodeOptions}
+                onSelect={(value) => {
+                  setValue('countryCode', String(value));
+                }}
+                placeholder="Ülke"
+                displayValue={countryCodeDisplayValue}
+                error={errors.countryCode?.message}
               />
             </View>
-            <View style={styles.dateItem}>
+            <View style={styles.phoneInputContainer}>
               <Input
-                label="Ay"
-                placeholder="01"
+                placeholder="Telefon"
                 control={control}
-                name="birthMonth"
-                keyboardType="numeric"
-                maxLength={2}
-                error={errors.birthMonth?.message}
-              />
-            </View>
-            <View style={styles.dateItem}>
-              <Input
-                label="Yıl"
-                placeholder="1990"
-                control={control}
-                name="birthYear"
-                keyboardType="numeric"
-                maxLength={4}
-                error={errors.birthYear?.message}
+                name="phone"
+                keyboardType="phone-pad"
+                error={errors.phone?.message}
               />
             </View>
           </View>
-
-          <Input
-            label="Telefon (Opsiyonel)"
-            placeholder="5XX XXX XX XX"
-            control={control}
-            name="phone"
-            keyboardType="phone-pad"
-            error={errors.phone?.message}
-          />
 
           <Button
             title={isEditMode ? 'Güncelle' : 'Kaydet'}
@@ -218,12 +298,57 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: 24,
   },
-  dateRow: {
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
+  phoneContainer: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 16,
   },
-  dateItem: {
+  countryCodeContainer: {
+    width: 120,
+  },
+  phoneInputContainer: {
     flex: 1,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  genderOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    backgroundColor: colors.gray[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderOptionSelected: {
+    borderColor: colors.primary[600],
+    backgroundColor: colors.primary[50],
+  },
+  genderText: {
+    fontSize: 16,
+    color: colors.text.primary,
+    fontWeight: '500',
+  },
+  genderTextSelected: {
+    color: colors.primary[600],
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: -12,
+    marginBottom: 16,
   },
   submitButton: {
     marginTop: 24,

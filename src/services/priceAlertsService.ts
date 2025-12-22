@@ -53,6 +53,10 @@ export const priceAlertsService = {
    * Delete price alert
    */
   async deleteAlert(id: string): Promise<void> {
-    await apiClient.delete(`/api/price-alerts/${id}`);
+    const response = await apiClient.delete(`/api/price-alerts/${id}`);
+    // Response kontrolü - ana sitede { success: true } dönüyor
+    if (response.data && !response.data.success) {
+      throw new Error('Alarm silinemedi');
+    }
   },
 };

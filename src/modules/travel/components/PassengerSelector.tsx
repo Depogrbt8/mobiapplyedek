@@ -31,7 +31,7 @@ export const PassengerSelector: React.FC<PassengerSelectorProps> = ({
         onPress={() => setShowModal(true)}
       >
         <Text style={styles.buttonText}>{totalPassengers} Yolcu</Text>
-        <Text style={styles.addText}>+ Yolcu Ekle</Text>
+        <Ionicons name="chevron-down" size={20} color={colors.text.primary} />
       </TouchableOpacity>
 
       <Modal
@@ -145,26 +145,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.gray[300],
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    height: 48,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    minHeight: 'auto',
     maxWidth: '100%',
     alignSelf: 'center',
-    width: '99.5%',
+    width: 'auto',
+    gap: 4,
   },
   buttonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
     color: colors.text.primary,
-  },
-  addText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text.primary,
+    textDecorationLine: 'underline',
   },
   modalOverlay: {
     flex: 1,

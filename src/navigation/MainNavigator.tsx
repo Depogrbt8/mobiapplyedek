@@ -1,8 +1,9 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import type { MainTabParamList, TravelStackParamList } from '@/core/navigation/types';
+import type { MainTabParamList, TravelStackParamList, ProfileStackParamList } from '@/core/navigation/types';
 import { moduleRegistry } from '@/modules/registry';
 import { colors } from '@/constants/colors';
 
@@ -21,14 +22,16 @@ import {
   CarReservationScreen,
   ThreeDSecureScreen,
 } from '@/modules/travel/screens';
-import { ProfileScreen, SettingsScreen, ReservationsHistoryScreen, PassengersScreen, AddEditPassengerScreen, FavoritesScreen, SearchHistoryScreen, PriceAlertsScreen, BillingInfoScreen } from '@/screens/profile';
+import { ProfileScreen, AccountInfoScreen, SettingsScreen, ReservationsHistoryScreen, PassengersScreen, AddEditPassengerScreen, FavoritesScreen, SearchHistoryScreen, PriceAlertsScreen, BillingInfoScreen } from '@/screens/profile';
+import { MyTripsScreen } from '@/screens/profile/mytrips';
 import { PNRQueryScreen, CheckInScreen, CancelTicketScreen } from '@/screens/travel';
 import { HelpScreen, AboutScreen } from '@/screens/info';
 import { HomeScreen } from '@/screens/home';
+import { CustomHeaderLeft, CustomHeader } from '@/components/common';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const TravelStackNav = createNativeStackNavigator<TravelStackParamList>();
-const ProfileStackNav = createNativeStackNavigator();
+const ProfileStackNav = createNativeStackNavigator<ProfileStackParamList>();
 
 // Placeholder screens for now
 const PlaceholderScreen = () => {
@@ -48,7 +51,6 @@ const TravelStack: React.FC = () => {
         name="Travel/FlightSearch"
         component={FlightSearchScreen}
         options={{ 
-          presentation: 'modal', // Aşağıdan açılacak
           headerShown: false,
         }}
       />
@@ -118,12 +120,36 @@ const TravelStack: React.FC = () => {
         component={ThreeDSecureScreen}
         options={{ title: '3D Secure', headerShown: false }}
       />
+      <TravelStackNav.Screen
+        name="Travel/CheckIn"
+        component={CheckInScreen}
+        options={{ title: 'Online Check-in', headerShown: true }}
+      />
+      <TravelStackNav.Screen
+        name="Travel/PNRQuery"
+        component={PNRQueryScreen}
+        options={{ title: 'PNR Sorgula', headerShown: true }}
+      />
+      <TravelStackNav.Screen
+        name="Travel/CancelTicket"
+        component={CancelTicketScreen}
+        options={{ title: 'Bilet İptal', headerShown: true }}
+      />
     </TravelStackNav.Navigator>
   );
 };
 
 export const MainNavigator: React.FC = () => {
-  const enabledModules = moduleRegistry.getEnabledModules();
+  let enabledModules: any[] = [];
+  try {
+    enabledModules = moduleRegistry?.getEnabledModules?.() || [];
+    if (!Array.isArray(enabledModules)) {
+      enabledModules = [];
+    }
+  } catch (error) {
+    console.error('Module registry error:', error);
+    enabledModules = [];
+  }
 
   return (
     <Tab.Navigator
@@ -156,15 +182,15 @@ export const MainNavigator: React.FC = () => {
         }}
       />
       
-      {enabledModules.map((module) => {
-        if (module.id === 'travel') {
+      {Array.isArray(enabledModules) && enabledModules.map((module) => {
+        if (module && module.id === 'travel') {
           return (
             <Tab.Screen
               key={module.id}
               name="Travel"
               component={TravelStack}
               options={{
-                tabBarLabel: module.name,
+                tabBarLabel: module.name || 'Seyahat',
                 tabBarIcon: ({ color, size }) => (
                   <Ionicons name="airplane" size={size} color={color} />
                 ),
@@ -185,6 +211,13 @@ export const MainNavigator: React.FC = () => {
             <Ionicons name="person" size={size} color={color} />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Profile tab'ına tıklandığında ProfileMain'e git
+            e.preventDefault();
+            navigation.navigate('Profile', { screen: 'ProfileMain' });
+          },
+        })}
       />
     </Tab.Navigator>
   );
@@ -194,7 +227,20 @@ export const MainNavigator: React.FC = () => {
 const ProfileStack: React.FC = () => {
   return (
     <ProfileStackNav.Navigator
-      screenOptions={{
+      initialRouteName="ProfileMain"
+      screenOptions={({ navigation, route }: any) => {
+        // route ve navigation güvenli kontrolü
+        if (!route || !navigation) {
+          return {
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary[600],
+            },
+            headerTintColor: colors.text.inverse,
+          };
+        }
+        
+        return {
         headerShown: true,
         headerStyle: {
           backgroundColor: colors.primary[600],
@@ -203,12 +249,66 @@ const ProfileStack: React.FC = () => {
         headerTitleStyle: {
           fontWeight: '600',
         },
+        headerBackVisible: false, // React Navigation'ın default geri butonunu gizle
+        headerBackTitleVisible: false, // Geri buton başlığını gizle
+        headerLeft: () => null, // headerLeft'i tamamen kaldır
+        headerLeftContainerStyle: {
+          width: 0,
+          paddingLeft: 0,
+          marginLeft: 0,
+        },
+        headerTitle: () => {
+          // route ve route.name kontrolü
+          if (!route || !route.name) {
+            return <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text.inverse }}>Profil</Text>;
+          }
+
+          // Ekran isimlerine göre title'ları belirle
+          const getTitle = (name: string) => {
+            const titles: Record<string, string> = {
+              ProfileMain: 'Hesabım',
+              AccountInfo: 'Hesap Bilgileri',
+              MyTrips: 'Seyahatlerim',
+              ReservationsHistory: 'Rezervasyonlarım',
+              Settings: 'Ayarlar',
+              Passengers: 'Yolcularım',
+              // PNRQuery, CheckIn, CancelTicket TravelStack'e taşındı
+              Help: 'Yardım',
+              About: 'Hakkımızda',
+              Favorites: 'Favorilerim',
+              SearchHistory: 'Aramalarım',
+              PriceAlerts: 'Fiyat Alarmlarım',
+              AddEditPassenger: 'Yolcu',
+              BillingInfo: 'Fatura Bilgilerim',
+            };
+            return titles[name] || name;
+          };
+
+          const title = getTitle(route.name);
+          
+          // İlk ekran (ProfileMain) için geri butonu gösterme
+          if (route.name === 'ProfileMain') {
+            return <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text.inverse }}>{title}</Text>;
+          }
+          return <CustomHeader title={title} showBackButton={true} />;
+        },
+      };
       }}
     >
       <ProfileStackNav.Screen
         name="ProfileMain"
         component={ProfileScreen}
         options={{ title: 'Profil' }}
+      />
+      <ProfileStackNav.Screen
+        name="AccountInfo"
+        component={AccountInfoScreen}
+        options={{ title: 'Hesap Bilgileri' }}
+      />
+      <ProfileStackNav.Screen
+        name="MyTrips"
+        component={MyTripsScreen}
+        options={{ title: 'Seyahatlerim' }}
       />
       <ProfileStackNav.Screen
         name="ReservationsHistory"

@@ -38,7 +38,7 @@ export const homeScreenStyles = StyleSheet.create({
     top: 0, // Header'ın üstünden başla
     left: 0,
     right: 0,
-    paddingTop: 100, // Logo'nun altına kadar (SafeArea + Logo yüksekliği + boşluk)
+    // paddingTop dinamik olarak GlobalHeader'da hesaplanıyor (useSafeAreaInsets ile)
     marginTop: 0,
     zIndex: 9999, // EN ÜSTTE - İkonların her şeyin üzerine çıkması için
     elevation: 9999, // Android için EN ÜSTTE
@@ -104,6 +104,7 @@ export const homeScreenStyles = StyleSheet.create({
   contentContainer: {
     padding: 16,
     paddingTop: 30, // Servis ikonları ve yazıları için boşluk
+    paddingBottom: 20,
   },
   placeholderText: {
     fontSize: 16,
@@ -112,4 +113,6 @@ export const homeScreenStyles = StyleSheet.create({
     marginTop: 24,
   },
 });
+
+
 

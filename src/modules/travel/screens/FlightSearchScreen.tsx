@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, Alert, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,44 +82,65 @@ export const FlightSearchScreen: React.FC = () => {
 
   const isFormValid = origin && destination && departureDate && (tripType === 'oneWay' || returnDate);
 
+  // Status bar yüksekliğine göre sabit padding
+  const statusBarHeight = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      {/* Status bar için padding */}
+      <View style={{ height: statusBarHeight }} />
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Trip Type Selector */}
-        <View style={styles.tripTypeContainer}>
-          <TouchableOpacity
-            style={[styles.tripTypeButton, tripType === 'oneWay' && styles.tripTypeButtonActive]}
-            onPress={() => {
-              setTripType('oneWay');
-              setReturnDate(null);
-            }}
-          >
-            <View style={[styles.radioButton, tripType === 'oneWay' && styles.radioButtonActive]}>
-              {tripType === 'oneWay' && <View style={styles.radioButtonInner} />}
-            </View>
-            <Text style={[styles.tripTypeText, tripType === 'oneWay' && styles.tripTypeTextActive]}>
-              Tek yön
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tripTypeButton, tripType === 'roundTrip' && styles.tripTypeButtonActive]}
-            onPress={() => setTripType('roundTrip')}
-          >
-            <View style={[styles.radioButton, tripType === 'roundTrip' && styles.radioButtonActive]}>
-              {tripType === 'roundTrip' && <View style={styles.radioButtonInner} />}
-            </View>
-            <Text style={[styles.tripTypeText, tripType === 'roundTrip' && styles.tripTypeTextActive]}>
-              Gidiş-dönüş
-            </Text>
-          </TouchableOpacity>
+        {/* Trip Type Selector and Passenger Selector */}
+        <View style={styles.tripTypeRow}>
+          <View style={styles.tripTypeContainer}>
+            <TouchableOpacity
+              style={[styles.tripTypeButton, tripType === 'oneWay' && styles.tripTypeButtonActive]}
+              onPress={() => {
+                setTripType('oneWay');
+                setReturnDate(null);
+              }}
+            >
+              <View style={[styles.radioButton, tripType === 'oneWay' && styles.radioButtonActive]}>
+                {tripType === 'oneWay' && <View style={styles.radioButtonInner} />}
+              </View>
+              <Text style={[styles.tripTypeText, tripType === 'oneWay' && styles.tripTypeTextActive]}>
+                Tek yön
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tripTypeButton, tripType === 'roundTrip' && styles.tripTypeButtonActive]}
+              onPress={() => setTripType('roundTrip')}
+            >
+              <View style={[styles.radioButton, tripType === 'roundTrip' && styles.radioButtonActive]}>
+                {tripType === 'roundTrip' && <View style={styles.radioButtonInner} />}
+              </View>
+              <Text style={[styles.tripTypeText, tripType === 'roundTrip' && styles.tripTypeTextActive]}>
+                Gidiş-dönüş
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Passenger Selector - Sağda */}
+          <View style={styles.passengerSelectorInline}>
+            <PassengerSelector
+              adultCount={adultCount}
+              childCount={childCount}
+              infantCount={infantCount}
+              onAdultCountChange={setAdultCount}
+              onChildCountChange={setChildCount}
+              onInfantCountChange={setInfantCount}
+            />
+          </View>
         </View>
 
         {/* Airport Inputs with Swap Button */}
@@ -141,7 +162,7 @@ export const FlightSearchScreen: React.FC = () => {
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="swap-horizontal" size={20} color={colors.primary[600]} />
+            <Ionicons name="swap-vertical" size={20} color={colors.gray[500]} />
           </TouchableOpacity>
           <View style={styles.airportInputWrapper}>
             <AirportSearchInput
@@ -174,17 +195,6 @@ export const FlightSearchScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Passenger Selector */}
-        <View style={styles.passengerWrapper}>
-          <PassengerSelector
-            adultCount={adultCount}
-            childCount={childCount}
-            infantCount={infantCount}
-            onAdultCountChange={setAdultCount}
-            onChildCountChange={setChildCount}
-            onInfantCountChange={setInfantCount}
-          />
-        </View>
 
         {/* Search Button */}
         <Button
@@ -290,11 +300,19 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 32,
   },
+  tripTypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   tripTypeContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
-    marginLeft: 0,
+    flex: 1,
+  },
+  passengerSelectorInline: {
+    marginLeft: 12,
   },
   tripTypeButton: {
     flexDirection: 'row',
@@ -344,23 +362,18 @@ const styles = StyleSheet.create({
   },
   swapButton: {
     position: 'absolute',
-    left: '50%',
+    right: 16,
     top: '50%',
-    transform: [{ translateX: -18 }, { translateY: -18 }],
+    transform: [{ translateY: -18 }],
     width: 36,
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
     backgroundColor: colors.background,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.gray[300],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    zIndex: 10,
   },
   dateContainer: {
     flexDirection: 'row',
@@ -369,9 +382,6 @@ const styles = StyleSheet.create({
   },
   dateInputWrapper: {
     flex: 1,
-  },
-  passengerWrapper: {
-    marginBottom: 16,
   },
   searchButton: {
     marginTop: 8,

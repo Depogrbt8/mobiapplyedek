@@ -20,6 +20,10 @@ apiClient.interceptors.request.use(
     const token = await secureStorage.getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+      // Debug: Token gönderiliyor mu kontrol et
+      console.log('🔑 Token gönderiliyor:', config.url, token.substring(0, 20) + '...');
+    } else {
+      console.warn('⚠️ Token bulunamadı:', config.url);
     }
     return config;
   },
@@ -46,8 +50,9 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
+        // config.API_URL already includes '/api', so we only need '/auth/refresh'
         const response = await axios.post(
-          `${config.API_URL}/api/auth/refresh`,
+          `${config.API_URL}/auth/refresh`,
           { refreshToken }
         );
 
@@ -85,4 +90,5 @@ apiClient.interceptors.response.use(
     });
   }
 );
+
 

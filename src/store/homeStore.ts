@@ -12,3 +12,5 @@ export const useHomeStore = create<HomeState>((set) => ({
   setSelectedService: (service: ServiceType) => set({ selectedService: service }),
 }));
 
+
+

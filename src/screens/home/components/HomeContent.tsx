@@ -1,6 +1,7 @@
 import React from 'react';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView } from 'react-native';
 import { homeScreenStyles } from '../styles/homeScreenStyles';
+import { UserInfoCard } from './UserInfoCard';
 
 export const HomeContent: React.FC = () => {
   return (
@@ -12,8 +13,11 @@ export const HomeContent: React.FC = () => {
       scrollEnabled={true}
       bounces={true}
     >
-      <Text style={homeScreenStyles.placeholderText}>Ana Sayfa İçeriği</Text>
+      {/* Kullanıcı Bilgi Kartı */}
+      <UserInfoCard />
     </ScrollView>
   );
 };
+
+
 

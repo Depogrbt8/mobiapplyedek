@@ -4,6 +4,15 @@ export interface Airport {
   city: string;
 }
 
+export interface FlightBrand {
+  id: string;
+  name: string;
+  price: number;
+  baggage: string;
+  rules: string;
+  description: string;
+}
+
 export interface Flight {
   id: string;
   airlineName: string;
@@ -17,6 +26,7 @@ export interface Flight {
   currency: string;
   direct: boolean;
   baggage: string;
+  selectedBrand?: FlightBrand;
 }
 
 export interface FlightSearchQuery {

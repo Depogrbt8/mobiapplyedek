@@ -5,8 +5,11 @@ type Environment = 'development' | 'staging' | 'production';
 const ENV: Environment = (Constants.expoConfig?.extra?.environment as Environment) || 'development';
 
 // API URLs per environment
+// Development için: Bilgisayarın IP adresini kullan (mobil cihazdan erişim için)
+// Örnek: 'http://10.39.95.186:3000/api' (kendi IP adresinizi kullanın)
+// Veya staging/production URL'ini kullanabilirsiniz
 const API_URLS: Record<Environment, string> = {
-  development: 'http://localhost:3000/api',
+  development: process.env.EXPO_PUBLIC_API_URL || 'https://gurbetbiz.app/api', // Localhost yerine production URL kullan
   staging: 'https://staging.gurbetbiz.app/api',
   production: 'https://gurbetbiz.app/api',
 };
@@ -36,4 +39,9 @@ export const config = {
     socket: 10000,
   },
 };
+
+
+
+
+
 

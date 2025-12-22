@@ -25,6 +25,9 @@ export type TravelStackParamList = {
   'Travel/CarResults': { searchParams: any };
   'Travel/CarReservation': { car?: any };
   'Travel/3DSecure': { redirectUrl: string; reservationId: string };
+  'Travel/CheckIn': undefined;
+  'Travel/PNRQuery': undefined;
+  'Travel/CancelTicket': undefined;
 };
 
 // Transfer Module Stack (gelecek)
@@ -45,12 +48,12 @@ export type SocialStackParamList = {
 // Profile Stack
 export type ProfileStackParamList = {
   ProfileMain: undefined;
+  AccountInfo: undefined;
+  MyTrips: undefined;
   ReservationsHistory: undefined;
   Settings: undefined;
   Passengers: undefined;
-  PNRQuery: undefined;
-  CheckIn: undefined;
-  CancelTicket: undefined;
+  // PNRQuery, CheckIn, CancelTicket TravelStack'e taşındı
   Help: undefined;
   About: undefined;
   Favorites: undefined;
@@ -80,7 +83,8 @@ export type MainTabParamList = {
 // Root Stack Navigator
 export type RootStackParamList = AuthStackParamList &
   TravelStackParamList &
-  MainTabParamList;
+  MainTabParamList &
+  ProfileStackParamList;
 
 // Navigation prop types
 declare global {

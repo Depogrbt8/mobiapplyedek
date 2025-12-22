@@ -35,7 +35,8 @@ export const ThreeDSecureScreen: React.FC = () => {
   const completePayment = async () => {
     try {
       // Call backend to complete 3D Secure payment
-      const response = await apiClient.post('/api/payment/3d-secure/complete', {
+      // config.API_URL already includes '/api', so we only need '/payment/3d-secure/complete'
+      const response = await apiClient.post('/payment/3d-secure/complete', {
         reservationId,
       });
 
@@ -87,4 +88,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+
 

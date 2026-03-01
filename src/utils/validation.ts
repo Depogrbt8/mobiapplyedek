@@ -3,8 +3,11 @@ import { z } from 'zod';
 // Kullanıcı doğrulama şemaları
 export const userSchema = {
   register: z.object({
-    name: z.string().min(2, 'İsim en az 2 karakter olmalıdır'),
+    firstName: z.string().min(2, 'Ad en az 2 karakter olmalıdır'),
+    lastName: z.string().min(2, 'Soyad en az 2 karakter olmalıdır'),
     email: z.string().email('Geçerli bir e-posta adresi giriniz'),
+    phone: z.string().min(1, 'Cep telefonu numarası zorunludur'),
+    countryCode: z.string().min(1, 'Ülke kodu zorunludur'),
     password: z
       .string()
       .min(8, 'Şifre en az 8 karakter olmalıdır')

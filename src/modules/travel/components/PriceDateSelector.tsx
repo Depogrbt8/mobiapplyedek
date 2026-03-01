@@ -19,7 +19,8 @@ interface PriceDateSelectorProps {
   loadingPrices: boolean;
   errorPrices: string | null;
   onOpenPriceAlert?: () => void;
-  onOpenFavorite?: () => void;
+  onToggleDirectOnly?: () => void;
+  isDirectOnlyActive?: boolean;
   onOpenMobileFilter?: () => void;
   onOpenSort?: () => void;
 }
@@ -33,7 +34,8 @@ export const PriceDateSelector: React.FC<PriceDateSelectorProps> = ({
   loadingPrices,
   errorPrices,
   onOpenPriceAlert,
-  onOpenFavorite,
+  onToggleDirectOnly,
+  isDirectOnlyActive = false,
   onOpenMobileFilter,
   onOpenSort,
 }) => {
@@ -138,8 +140,25 @@ export const PriceDateSelector: React.FC<PriceDateSelectorProps> = ({
         </View>
 
         {/* Aksiyon butonları */}
-        {(onOpenPriceAlert || onOpenFavorite || onOpenMobileFilter || onOpenSort) && (
+        {(onToggleDirectOnly || onOpenPriceAlert || onOpenMobileFilter || onOpenSort) && (
           <View style={styles.actionButtonsContainer}>
+            {onToggleDirectOnly && (
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  isDirectOnlyActive && styles.actionButtonActive
+                ]}
+                onPress={onToggleDirectOnly}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.actionButtonText,
+                  isDirectOnlyActive && styles.actionButtonTextActive
+                ]}>
+                  Aktarmasız
+                </Text>
+              </TouchableOpacity>
+            )}
             {onOpenPriceAlert && (
               <TouchableOpacity
                 style={styles.actionButton}
@@ -147,15 +166,6 @@ export const PriceDateSelector: React.FC<PriceDateSelectorProps> = ({
                 activeOpacity={0.7}
               >
                 <Text style={styles.actionButtonText}>Alarm</Text>
-              </TouchableOpacity>
-            )}
-            {onOpenFavorite && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={onOpenFavorite}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.actionButtonText}>Favori</Text>
               </TouchableOpacity>
             )}
             {onOpenMobileFilter && (
@@ -303,22 +313,30 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.gray[200],
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
+  actionButtonActive: {
+    backgroundColor: colors.primary[600],
+    borderColor: colors.primary[600],
+  },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  actionButtonTextActive: {
+    color: colors.text.inverse,
   },
   loadingContainer: {
     padding: 20,
@@ -333,4 +351,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
+
+
+
+
 

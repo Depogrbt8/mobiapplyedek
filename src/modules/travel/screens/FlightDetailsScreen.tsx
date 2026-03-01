@@ -81,7 +81,9 @@ export const FlightDetailsScreen: React.FC = () => {
         <View style={styles.route}>
           <View style={styles.timeSection}>
             <Text style={styles.time}>{formatTime(flight.departureTime)}</Text>
-            <Text style={styles.airport}>{flight.origin}</Text>
+            <View style={styles.airportContainer}>
+              <Text style={styles.airport}>{flight.origin}</Text>
+            </View>
             <Text style={styles.date}>{formatDate(flight.departureTime)}</Text>
           </View>
 
@@ -92,7 +94,9 @@ export const FlightDetailsScreen: React.FC = () => {
 
           <View style={styles.timeSection}>
             <Text style={styles.time}>{formatTime(flight.arrivalTime)}</Text>
-            <Text style={styles.airport}>{flight.destination}</Text>
+            <View style={styles.airportContainer}>
+              <Text style={styles.airport}>{flight.destination}</Text>
+            </View>
             <Text style={styles.date}>{formatDate(flight.arrivalTime)}</Text>
           </View>
         </View>
@@ -181,13 +185,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  airportContainer: {
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 8,
+    alignSelf: 'center',
   },
   airport: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 4,
   },
   date: {
     fontSize: 12,

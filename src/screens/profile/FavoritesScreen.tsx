@@ -1,30 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Text, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ErrorDisplay } from '@/components/common/ErrorDisplay';
 import { favoritesService, type FavoriteSearch } from '@/services/favoritesService';
+import { hotelFavoritesService, type HotelFavorite } from '@/services/hotelFavoritesService';
 import { formatDate } from '@/utils/format';
 import { colors } from '@/constants/colors';
 
+type TabType = 'flights' | 'hotels';
+
 export const FavoritesScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [favorites, setFavorites] = useState<FavoriteSearch[]>([]);
+  const [searchFavorites, setSearchFavorites] = useState<FavoriteSearch[]>([]);
+  const [hotelFavorites, setHotelFavorites] = useState<HotelFavorite[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('flights');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadFavorites();
-  }, []);
-
   const loadFavorites = async () => {
-    setIsLoading(true);
     setError(null);
     try {
-      const data = await favoritesService.getFavorites();
-      setFavorites(data);
+      const [searchData, hotelData] = await Promise.all([
+        favoritesService.getFavorites(),
+        hotelFavoritesService.getFavorites(),
+      ]);
+      setSearchFavorites(searchData);
+      setHotelFavorites(hotelData);
     } catch (err: any) {
       setError(err.message || 'Favoriler yüklenemedi');
     } finally {
@@ -32,13 +46,17 @@ export const FavoritesScreen: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    loadFavorites();
+  }, []);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadFavorites();
     setRefreshing(false);
   };
 
-  const handleDelete = async (favorite: FavoriteSearch) => {
+  const handleDeleteSearch = async (favorite: FavoriteSearch) => {
     Alert.alert(
       'Favoriyi Sil',
       'Bu aramayı favorilerinizden silmek istediğinizden emin misiniz?',
@@ -50,7 +68,7 @@ export const FavoritesScreen: React.FC = () => {
           onPress: async () => {
             try {
               await favoritesService.deleteFavorite(favorite.id);
-              setFavorites(favorites.filter((f) => f.id !== favorite.id));
+              setSearchFavorites((prev) => prev.filter((f) => f.id !== favorite.id));
             } catch (err: any) {
               Alert.alert('Hata', err.message || 'Favori silinemedi');
             }
@@ -60,57 +78,140 @@ export const FavoritesScreen: React.FC = () => {
     );
   };
 
-  const handleSearch = (favorite: FavoriteSearch) => {
-    // Navigate to flight search with favorite params
-    navigation.navigate('Travel' as never, {
-      screen: 'Travel/FlightSearch' as never,
-      params: {
+  const handleDeleteHotel = async (favorite: HotelFavorite) => {
+    Alert.alert(
+      'Favoriyi Sil',
+      'Bu oteli favorilerinizden silmek istediğinizden emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await hotelFavoritesService.removeFavorite(favorite.hotelId);
+              setHotelFavorites((prev) => prev.filter((f) => f.hotelId !== favorite.hotelId));
+            } catch (err: any) {
+              Alert.alert('Hata', err.message || 'Favori silinemedi');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSearchFlight = (favorite: FavoriteSearch) => {
+    navigation.navigate('Home' as never, {
+      service: 'flight',
+      searchParams: {
         origin: favorite.origin,
         destination: favorite.destination,
         departureDate: favorite.departureDate,
-      } as never,
-    });
+      },
+    } as never);
   };
 
-  const renderFavorite = ({ item }: { item: FavoriteSearch }) => {
-    return (
-      <Card style={styles.favoriteCard}>
-        <View style={styles.favoriteContent}>
-          <View style={styles.routeInfo}>
-            <View style={styles.routeItem}>
-              <Text style={styles.routeLabel}>Nereden</Text>
-              <Text style={styles.routeValue}>{item.origin}</Text>
-            </View>
-            <Text style={styles.arrow}>→</Text>
-            <View style={styles.routeItem}>
-              <Text style={styles.routeLabel}>Nereye</Text>
-              <Text style={styles.routeValue}>{item.destination}</Text>
-            </View>
+  const getDefaultSearchParams = () => {
+    const checkIn = new Date();
+    const checkOut = new Date();
+    checkOut.setDate(checkOut.getDate() + 2);
+    return {
+      location: 'İstanbul',
+      checkIn: checkIn.toISOString().split('T')[0],
+      checkOut: checkOut.toISOString().split('T')[0],
+      guests: { adults: 2, children: 0, rooms: 1 },
+    };
+  };
+
+  const handleOpenHotel = (favorite: HotelFavorite) => {
+    navigation.navigate('Travel/HotelDetails' as never, {
+      hotelId: favorite.hotelId,
+      searchParams: getDefaultSearchParams(),
+    } as never);
+  };
+
+  const renderFlightFavorite = ({ item }: { item: FavoriteSearch }) => (
+    <Card style={styles.card}>
+      <View style={styles.cardContent}>
+        <View style={styles.routeRow}>
+          <View style={styles.routeItem}>
+            <Text style={styles.routeLabel}>Nereden</Text>
+            <Text style={styles.routeValue}>{item.origin}</Text>
           </View>
-          <View style={styles.dateInfo}>
-            <Text style={styles.dateLabel}>Tarih:</Text>
-            <Text style={styles.dateValue}>{formatDate(item.departureDate)}</Text>
+          <Ionicons name="arrow-forward" size={20} color={colors.gray[400]} />
+          <View style={styles.routeItem}>
+            <Text style={styles.routeLabel}>Nereye</Text>
+            <Text style={styles.routeValue}>{item.destination}</Text>
+          </View>
+        </View>
+        <View style={styles.metaRow}>
+          <Ionicons name="calendar-outline" size={16} color={colors.gray[400]} />
+          <Text style={styles.metaText}>{formatDate(item.departureDate)}</Text>
+        </View>
+        {item.createdAt && (
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>Eklenme: </Text>
+            <Text style={styles.metaText}>{formatDate(item.createdAt)}</Text>
+          </View>
+        )}
+        <View style={styles.actions}>
+          <Button
+            title="Uçuşları Gör"
+            onPress={() => handleSearchFlight(item)}
+            size="small"
+            variant="outline"
+          />
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => handleDeleteSearch(item)}
+          >
+            <Ionicons name="trash-outline" size={22} color={colors.error || '#ef4444'} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Card>
+  );
+
+  const renderHotelFavorite = ({ item }: { item: HotelFavorite }) => (
+    <Card style={styles.card}>
+      <View style={styles.cardContent}>
+        <View style={styles.hotelRow}>
+          <View style={styles.hotelInfo}>
+            <Text style={styles.hotelName} numberOfLines={2}>
+              {item.hotelName || `Otel ${item.hotelId}`}
+            </Text>
+            {item.hotelLocation && (
+              <Text style={styles.hotelLocation} numberOfLines={1}>
+                {item.hotelLocation}
+              </Text>
+            )}
+            {item.createdAt && (
+              <View style={styles.metaRow}>
+                <Ionicons name="calendar-outline" size={14} color={colors.gray[400]} />
+                <Text style={styles.metaTextSmall}>{formatDate(item.createdAt)}</Text>
+              </View>
+            )}
           </View>
           <View style={styles.actions}>
             <Button
-              title="Uçuşları Gör"
-              onPress={() => handleSearch(item)}
+              title="Oteli Gör"
+              onPress={() => handleOpenHotel(item)}
               size="small"
               variant="outline"
             />
             <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleDelete(item)}
+              style={styles.deleteBtn}
+              onPress={() => handleDeleteHotel(item)}
             >
-              <Text style={styles.deleteButtonText}>Sil</Text>
+              <Ionicons name="trash-outline" size={22} color={colors.error || '#ef4444'} />
             </TouchableOpacity>
           </View>
         </View>
-      </Card>
-    );
-  };
+      </View>
+    </Card>
+  );
 
-  if (isLoading && favorites.length === 0) {
+  if (isLoading && searchFavorites.length === 0 && hotelFavorites.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.loadingText}>Yükleniyor...</Text>
@@ -118,32 +219,114 @@ export const FavoritesScreen: React.FC = () => {
     );
   }
 
-  if (error && favorites.length === 0) {
+  if (error && searchFavorites.length === 0 && hotelFavorites.length === 0) {
     return <ErrorDisplay error={error} onRetry={loadFavorites} />;
   }
+
+  const descriptionText =
+    activeTab === 'flights'
+      ? 'Favori uçuş aramalarınızı buradan kolayca tekrar yapabilir, fiyatları kontrol edebilirsiniz. Sık uçtuğunuz rotaları favorilerinize ekleyerek daha hızlı bilet alabilirsiniz.'
+      : 'Favori otellerinizi buradan görüntüleyebilir ve kolayca tekrar rezervasyon yapabilirsiniz.';
+
+  const ListFooter = () => (
+    <View style={styles.footerInfo}>
+      <Text style={styles.footerInfoText}>{descriptionText}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Favorilerim</Text>
-      </View>
-      <FlatList
-        data={favorites}
-        keyExtractor={(item) => item.id}
-        renderItem={renderFavorite}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Henüz favori aramanız bulunmamaktadır</Text>
-            <Text style={styles.emptySubtext}>
-              Sık uçtuğunuz rotaları favorilerinize ekleyerek daha hızlı bilet alabilirsiniz
+        <View style={styles.titleRow}>
+          <Ionicons name="heart" size={24} color={colors.primary[500]} />
+          <Text style={styles.title}>Favorilerim</Text>
+        </View>
+
+        {/* Tab bar - ana site ile aynı */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'flights' && styles.tabActive]}
+            onPress={() => setActiveTab('flights')}
+          >
+            <Ionicons
+              name="airplane-outline"
+              size={18}
+              color={activeTab === 'flights' ? colors.primary[600] : colors.gray[500]}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'flights' && styles.tabTextActive,
+              ]}
+            >
+              Uçuş Aramaları ({searchFavorites.length})
             </Text>
-          </View>
-        }
-      />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'hotels' && styles.tabActive]}
+            onPress={() => setActiveTab('hotels')}
+          >
+            <Ionicons
+              name="business-outline"
+              size={18}
+              color={activeTab === 'hotels' ? colors.primary[600] : colors.gray[500]}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'hotels' && styles.tabTextActive,
+              ]}
+            >
+              Oteller ({hotelFavorites.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{error}</Text>
+          <TouchableOpacity onPress={loadFavorites}>
+            <Text style={styles.retryText}>Tekrar dene</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeTab === 'flights' && (
+        <FlatList
+          data={searchFavorites}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFlightFavorite}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[600]]} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Henüz favori uçuş aramanız bulunmamaktadır.</Text>
+            </View>
+          }
+          ListFooterComponent={ListFooter}
+        />
+      )}
+
+      {activeTab === 'hotels' && (
+        <FlatList
+          data={hotelFavorites}
+          keyExtractor={(item) => item.id}
+          renderItem={renderHotelFavorite}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary[600]]} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Henüz favori oteliniz bulunmamaktadır.</Text>
+            </View>
+          }
+          ListFooterComponent={ListFooter}
+        />
+      )}
     </View>
   );
 };
@@ -164,25 +347,82 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   header: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
+    backgroundColor: colors.background,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text.primary,
   },
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 2,
+    borderBottomColor: colors.gray[200],
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginBottom: -2,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: colors.primary[500],
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray[500],
+  },
+  tabTextActive: {
+    color: colors.primary[600],
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: colors.error + '15',
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 8,
+  },
+  errorBannerText: {
+    fontSize: 14,
+    color: colors.error || '#ef4444',
+    flex: 1,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary[600],
+    marginLeft: 8,
+  },
   listContent: {
     padding: 16,
+    paddingBottom: 100,
   },
-  favoriteCard: {
-    marginBottom: 16,
+  card: {
+    marginBottom: 12,
   },
-  favoriteContent: {
-    gap: 12,
+  cardContent: {
+    gap: 10,
   },
-  routeInfo: {
+  routeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -196,62 +436,77 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   routeValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text.primary,
   },
-  arrow: {
-    fontSize: 20,
-    color: colors.text.secondary,
-    marginHorizontal: 12,
-  },
-  dateInfo: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  dateLabel: {
-    fontSize: 14,
+  metaLabel: {
+    fontSize: 12,
     color: colors.text.secondary,
   },
-  dateValue: {
+  metaText: {
     fontSize: 14,
-    fontWeight: '500',
     color: colors.text.primary,
+  },
+  metaTextSmall: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 4,
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     marginTop: 8,
   },
-  deleteButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: colors.error + '20',
+  deleteBtn: {
+    padding: 8,
   },
-  deleteButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.error,
+  hotelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  emptyContainer: {
+  hotelInfo: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 48,
   },
-  emptyText: {
-    fontSize: 18,
+  hotelName: {
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 4,
   },
-  emptySubtext: {
-    fontSize: 14,
+  hotelLocation: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginBottom: 4,
+  },
+  emptyContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
     color: colors.text.secondary,
     textAlign: 'center',
-    paddingHorizontal: 32,
+  },
+  footerInfo: {
+    padding: 16,
+    paddingBottom: 32,
+    marginTop: 16,
+    backgroundColor: colors.gray[50],
+    borderRadius: 8,
+  },
+  footerInfoText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });

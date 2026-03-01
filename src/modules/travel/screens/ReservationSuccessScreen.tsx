@@ -61,7 +61,9 @@ export const ReservationSuccessScreen: React.FC = () => {
             title="Rezervasyonlarım"
             onPress={() => {
               // Navigate to reservations history
-              navigation.navigate('Travel/FlightSearch');
+              navigation.navigate('Home' as never, {
+                service: 'home',
+              } as never);
             }}
             fullWidth
             style={styles.button}
@@ -69,7 +71,9 @@ export const ReservationSuccessScreen: React.FC = () => {
           <Button
             title="Ana Sayfa"
             onPress={() => {
-              navigation.navigate('Travel/FlightSearch');
+              navigation.navigate('Home' as never, {
+                service: 'home',
+              } as never);
             }}
             variant="outline"
             fullWidth
@@ -144,6 +148,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+
+
+
 
 
 

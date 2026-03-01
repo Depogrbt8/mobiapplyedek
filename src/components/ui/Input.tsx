@@ -3,13 +3,13 @@ import { TextInput, View, Text, StyleSheet, TextInputProps, ViewStyle } from 're
 import { Controller, Control, FieldValues, Path } from 'react-hook-form';
 import { colors } from '@/constants/colors';
 
-interface InputProps<T extends FieldValues = FieldValues> extends Omit<TextInputProps, 'value' | 'onChangeText'> {
+interface InputProps<T extends FieldValues = FieldValues> extends TextInputProps {
   label?: string;
   error?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   containerStyle?: ViewStyle;
-  // React Hook Form props
+  // React Hook Form props (when using these, value and onChangeText are ignored)
   control?: Control<T>;
   name?: Path<T>;
 }
@@ -23,6 +23,8 @@ export const Input = <T extends FieldValues = FieldValues>({
   style,
   control,
   name,
+  value,
+  onChangeText,
   ...props
 }: InputProps<T>) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -86,6 +88,8 @@ export const Input = <T extends FieldValues = FieldValues>({
         <TextInput
           style={[styles.input, style]}
           placeholderTextColor={colors.text.disabled}
+          value={value}
+          onChangeText={onChangeText}
           onFocus={(e) => {
             setIsFocused(true);
             props.onFocus?.(e);

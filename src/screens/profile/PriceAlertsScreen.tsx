@@ -61,14 +61,14 @@ export const PriceAlertsScreen: React.FC = () => {
   };
 
   const handleSearch = (alert: PriceAlert) => {
-    navigation.navigate('Travel' as never, {
-      screen: 'Travel/FlightSearch' as never,
-      params: {
+    navigation.navigate('Home' as never, {
+      service: 'flight',
+      searchParams: {
         origin: alert.origin,
         destination: alert.destination,
         departureDate: alert.departureDate,
-      } as never,
-    });
+      },
+    } as never);
   };
 
   const renderAlert = ({ item }: { item: PriceAlert }) => {
@@ -148,9 +148,9 @@ export const PriceAlertsScreen: React.FC = () => {
         <Button
           title="Yeni Alarm"
           onPress={() => {
-            navigation.navigate('Travel' as never, {
-              screen: 'Travel/FlightSearch' as never,
-            });
+            navigation.navigate('Home' as never, {
+              service: 'flight',
+            } as never);
           }}
           size="small"
         />
@@ -172,9 +172,9 @@ export const PriceAlertsScreen: React.FC = () => {
             <Button
               title="İlk Alarmı Oluştur"
               onPress={() => {
-                navigation.navigate('Travel' as never, {
-                  screen: 'Travel/FlightSearch' as never,
-                });
+                navigation.navigate('Home' as never, {
+                  service: 'flight',
+                } as never);
               }}
               style={styles.addButton}
             />

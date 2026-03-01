@@ -264,3 +264,11 @@ const styles = StyleSheet.create({
     color: colors.primary[600],
   },
 });
+
+
+
+
+
+
+
+

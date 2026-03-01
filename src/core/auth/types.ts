@@ -35,11 +35,22 @@ export interface RefreshTokenResponse {
 }
 
 export interface RegisterData {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
+  countryCode: string;
+  phone: string;
 }
+
+
+
+
+
+
+
+
 
 
 

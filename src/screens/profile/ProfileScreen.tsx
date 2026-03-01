@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
 import { colors } from '@/constants/colors';
 import type { ProfileStackParamList } from '@/core/navigation/types';
+import { SurveyPopup } from '@/components/SurveyPopup';
 
 type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -103,6 +104,7 @@ export const ProfileScreen: React.FC = () => {
         fullWidth
         style={styles.logoutButton}
       />
+      <SurveyPopup />
     </ScrollView>
   );
 };

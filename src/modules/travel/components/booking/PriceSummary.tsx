@@ -128,8 +128,7 @@ export const PriceSummary: React.FC<PriceSummaryProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    padding: 12,
+    marginBottom: 0, // Parent container'da margin var
   },
   title: {
     fontSize: 18,

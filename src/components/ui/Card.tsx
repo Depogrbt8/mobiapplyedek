@@ -19,7 +19,7 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const getCardStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      backgroundColor: colors.background,
+      backgroundColor: '#ffffff', // Beyaz arka plan
       borderRadius: 8,
     };
 
@@ -40,7 +40,14 @@ export const Card: React.FC<CardProps> = ({
           borderColor: colors.gray[200],
         };
       default:
-        return baseStyle;
+        return {
+          ...baseStyle,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 2,
+        };
     }
   };
 
@@ -75,6 +82,9 @@ export const Card: React.FC<CardProps> = ({
 
   return cardContent;
 };
+
+
+
 
 
 

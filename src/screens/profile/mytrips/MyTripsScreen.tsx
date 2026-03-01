@@ -10,6 +10,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '@/constants/colors';
 import { apiClient } from '@/core/api/client';
+import { reservationService } from '@/modules/travel/services/reservationService';
+import { hotelBookingService } from '@/services/hotelBookingService';
 import { TabType, FlightReservation, HotelReservation, CarReservation } from '@/types/travel';
 import {
   TripTabSelector,
@@ -18,60 +20,6 @@ import {
   CarReservationCard,
   TripEmptyState,
 } from './components';
-
-// Demo otel verileri
-const DEMO_HOTELS: HotelReservation[] = [
-  {
-    id: 'h1',
-    hotelName: 'Grand Hyatt Berlin',
-    location: 'Berlin, Almanya',
-    address: 'Unter den Linden 77, 10117 Berlin',
-    phone: '+49 30 25990',
-    checkIn: '2024-08-15',
-    checkOut: '2024-08-18',
-    roomType: 'Deluxe Oda, Deniz Manzaralı',
-    guests: [
-      { name: 'Ali İncesu', type: 'Yetişkin' },
-      { name: 'Ayşe Yılmaz', type: 'Yetişkin' },
-    ],
-    price: '4.500 TL',
-    status: 'Onaylandı',
-    reservationNo: 'HTL987654',
-    payment: 'Kredi Kartı',
-    rules: 'İptal ve iade girişten 24 saat öncesine kadar ücretsizdir.',
-    services: ['Kahvaltı dahil', 'Ücretsiz Wi-Fi', 'Havuz', 'Otopark'],
-    checkInTime: '14:00',
-    checkOutTime: '12:00',
-    notes: 'Yüksek kat, sigara içilmeyen oda talep edildi.',
-  },
-];
-
-// Demo araç verileri
-const DEMO_CARS: CarReservation[] = [
-  {
-    id: 'c1',
-    car: 'Volkswagen Golf',
-    type: 'Ekonomi, Dizel, Otomatik',
-    plate: '34 ABC 123',
-    pickupLocation: 'Sabiha Gökçen Havalimanı',
-    pickupCity: 'İstanbul',
-    pickupDate: '2024-09-01',
-    pickupTime: '10:00',
-    dropoffLocation: 'Esenboğa Havalimanı',
-    dropoffCity: 'Ankara',
-    dropoffDate: '2024-09-05',
-    dropoffTime: '14:00',
-    price: '2.100 TL',
-    status: 'Onaylandı',
-    reservationNo: 'CAR456789',
-    payment: 'Kredi Kartı',
-    services: ['Ek Sürücü', 'Çocuk Koltuğu', 'Tam Sigorta'],
-    renter: 'Ali İncesu',
-    rules: 'Araç en az %25 yakıt ile teslim edilmelidir. İptal 24 saat öncesine kadar ücretsizdir.',
-    officePhone: '+90 216 123 45 67',
-    notes: 'Beyaz renk, navigasyon opsiyonel.',
-  },
-];
 
 export const MyTripsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -85,9 +33,11 @@ export const MyTripsScreen: React.FC = () => {
   const [airRulesLoading, setAirRulesLoading] = useState<string | null>(null);
   const [airRulesError, setAirRulesError] = useState<string | null>(null);
 
-  // Otel ve araç rezervasyonları (şimdilik demo)
-  const [hotelReservations] = useState<HotelReservation[]>(DEMO_HOTELS);
-  const [carReservations] = useState<CarReservation[]>(DEMO_CARS);
+  // Otel ve araç rezervasyonları (gerçek API'den)
+  const [hotelReservations, setHotelReservations] = useState<HotelReservation[]>([]);
+  const [loadingHotels, setLoadingHotels] = useState(true);
+  const [carReservations, setCarReservations] = useState<CarReservation[]>([]);
+  const [loadingCars, setLoadingCars] = useState(true);
 
   // Uçuş rezervasyonlarını API'den çek
   const fetchFlightReservations = useCallback(async () => {
@@ -185,15 +135,143 @@ export const MyTripsScreen: React.FC = () => {
     }
   }, []);
 
+  // Otel rezervasyonlarını API'den çek - Desktop ile aynı: GET /api/hotels/bookings
+  const fetchHotelReservations = useCallback(async () => {
+    setLoadingHotels(true);
+    try {
+      const response = await hotelBookingService.getBookings();
+
+      if (!response.success || !response.data?.bookings || response.data.bookings.length === 0) {
+        setHotelReservations([]);
+        return;
+      }
+
+      const bookings = response.data.bookings;
+
+      const results: HotelReservation[] = bookings
+        .filter((b: any) => b && typeof b === 'object')
+        .map((b: any) => {
+          // misafir bilgilerini parse et (desktop ile aynı format)
+          let guestsList: { name: string; type: string }[] = [];
+          if (b.guestDetails) {
+            try {
+              const details = typeof b.guestDetails === 'string' ? JSON.parse(b.guestDetails) : b.guestDetails;
+              if (Array.isArray(details)) {
+                guestsList = details.map((g: any) => ({
+                  name: `${g.firstName || ''} ${g.lastName || ''}`.trim() || 'Misafir',
+                  type: g.type === 'child' ? 'Çocuk' : 'Yetişkin',
+                }));
+              }
+            } catch {}
+          }
+          if (guestsList.length === 0 && b.guestInfo) {
+            try {
+              const gi = typeof b.guestInfo === 'string' ? JSON.parse(b.guestInfo) : b.guestInfo;
+              if (gi?.firstName || gi?.lastName) {
+                guestsList = [{ name: `${gi.firstName || ''} ${gi.lastName || ''}`.trim() || 'Misafir', type: 'Yetişkin' }];
+              }
+            } catch {}
+          }
+
+          // Tarih formatı: ISO string'den YYYY-MM-DD
+          const checkInDate = b.checkIn ? new Date(b.checkIn) : null;
+          const checkOutDate = b.checkOut ? new Date(b.checkOut) : null;
+
+          return {
+            id: b.id,
+            hotelName: b.hotelName || 'Otel',
+            location: b.hotelLocation || '',
+            address: b.hotelLocation || '',
+            phone: '',
+            checkIn: checkInDate?.toISOString().slice(0, 10) || '',
+            checkOut: checkOutDate?.toISOString().slice(0, 10) || '',
+            roomType: b.roomName || b.roomType || '',
+            guests: guestsList,
+            price: `${b.totalPrice ?? 0} ${b.currency ?? 'EUR'}`,
+            status: b.status === 'confirmed' ? 'Onaylandı' : b.status === 'cancelled' ? 'İptal Edildi' : b.status === 'pending' ? 'Beklemede' : b.status || '',
+            reservationNo: b.confirmationNumber || b.id,
+            payment: 'Kredi Kartı',
+            rules: b.cancellationPolicy || 'İptal politikası otel tarafından belirlenir.',
+            services: [],
+            checkInTime: '14:00',
+            checkOutTime: '12:00',
+            notes: b.specialRequests || '',
+          };
+        });
+
+      setHotelReservations(results);
+    } catch (error: any) {
+      if (error?.status !== 401 && __DEV__) {
+        console.error('Otel rezervasyonları yüklenirken hata:', error);
+      }
+      setHotelReservations([]);
+    } finally {
+      setLoadingHotels(false);
+    }
+  }, []);
+
+  // Araç rezervasyonlarını API'den çek
+  const fetchCarReservations = useCallback(async () => {
+    setLoadingCars(true);
+    try {
+      const reservations = await reservationService.getReservations('car');
+      if (!reservations || !Array.isArray(reservations) || reservations.length === 0) {
+        setCarReservations([]);
+        return;
+      }
+
+      const results: CarReservation[] = reservations
+        .filter((r: any) => r && typeof r === 'object')
+        .map((r: any) => ({
+          id: r.id || String(Date.now()),
+          car: r.carName || r.carModel || 'Araç',
+          type: r.carType || '',
+          plate: r.plate || '',
+          pickupLocation: r.pickupLocation || '',
+          pickupCity: r.pickupCity || '',
+          pickupDate: r.pickupDate || '',
+          pickupTime: r.pickupTime || '',
+          dropoffLocation: r.dropoffLocation || '',
+          dropoffCity: r.dropoffCity || '',
+          dropoffDate: r.dropoffDate || '',
+          dropoffTime: r.dropoffTime || '',
+          price: `${r.amount || 0} ${r.currency || 'EUR'}`,
+          status: r.status === 'confirmed' ? 'Onaylandı' : r.status === 'cancelled' ? 'İptal Edildi' : 'Beklemede',
+          reservationNo: r.reservationNo || r.id || '',
+          payment: r.paymentMethod || 'Kredi Kartı',
+          services: [],
+          renter: r.renterName || '',
+          rules: '',
+          officePhone: '',
+          notes: r.notes || '',
+        }));
+
+      setCarReservations(results);
+    } catch (error: any) {
+      if (error?.status !== 401 && __DEV__) {
+        console.error('Araç rezervasyonları yüklenirken hata:', error);
+      }
+      setCarReservations([]);
+    } finally {
+      setLoadingCars(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchFlightReservations();
-  }, [fetchFlightReservations]);
+    fetchHotelReservations();
+    fetchCarReservations();
+  }, [fetchFlightReservations, fetchHotelReservations, fetchCarReservations]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchFlightReservations();
+    await Promise.all([
+      fetchFlightReservations(),
+      fetchHotelReservations(),
+      fetchCarReservations(),
+    ]);
     setRefreshing(false);
-  }, [fetchFlightReservations]);
+  }, [fetchFlightReservations, fetchHotelReservations, fetchCarReservations]);
 
   // Uçuş detayı açıldığında kuralları yükle
   const handleOpenFlightDetail = async (flight: FlightReservation) => {
@@ -265,7 +343,12 @@ export const MyTripsScreen: React.FC = () => {
   const renderHotelContent = () => (
     <View style={styles.contentSection}>
       <Text style={styles.sectionTitle}>Otel Rezervasyonlarım</Text>
-      {hotelReservations.length === 0 ? (
+      {loadingHotels ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary[600]} />
+          <Text style={styles.loadingText}>Otel rezervasyonlarınız yükleniyor...</Text>
+        </View>
+      ) : hotelReservations.length === 0 ? (
         <TripEmptyState type="otel" onAction={handleSearchHotel} />
       ) : (
         hotelReservations.map((hotel) => (
@@ -279,7 +362,12 @@ export const MyTripsScreen: React.FC = () => {
   const renderCarContent = () => (
     <View style={styles.contentSection}>
       <Text style={styles.sectionTitle}>Araç Rezervasyonlarım</Text>
-      {carReservations.length === 0 ? (
+      {loadingCars ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary[600]} />
+          <Text style={styles.loadingText}>Araç rezervasyonlarınız yükleniyor...</Text>
+        </View>
+      ) : carReservations.length === 0 ? (
         <TripEmptyState type="arac" onAction={handleSearchCar} />
       ) : (
         carReservations.map((car) => <CarReservationCard key={car.id} car={car} />)

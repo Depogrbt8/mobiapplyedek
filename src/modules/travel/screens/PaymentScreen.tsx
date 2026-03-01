@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Text, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -9,9 +9,11 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { GuestInfoSection, createEmptyGuest } from '../components/booking/GuestInfoSection';
 import { paymentService } from '../services/paymentService';
 import { formatCurrency } from '@/utils/format';
 import type { TravelStackParamList } from '@/core/navigation/types';
+import type { HotelGuest } from '../types/hotel';
 import { colors } from '@/constants/colors';
 
 // Calculate total amount based on reservation type
@@ -19,7 +21,7 @@ const calculateTotal = (reservationData: any): number => {
   if (reservationData?.type === 'flight') {
     return reservationData?.flight?.price || 0;
   } else if (reservationData?.type === 'hotel') {
-    return reservationData?.hotel?.price || 0;
+    return reservationData?.booking?.totalPrice ?? reservationData?.hotel?.price ?? 0;
   } else if (reservationData?.type === 'car') {
     return reservationData?.car?.price || 0;
   }
@@ -30,7 +32,7 @@ const getCurrency = (reservationData: any): string => {
   if (reservationData?.type === 'flight') {
     return reservationData?.flight?.currency || 'TRY';
   } else if (reservationData?.type === 'hotel') {
-    return reservationData?.hotel?.currency || 'TRY';
+    return reservationData?.booking?.currency ?? reservationData?.rate?.currency ?? 'TRY';
   } else if (reservationData?.type === 'car') {
     return reservationData?.car?.currency || 'TRY';
   }
@@ -55,6 +57,29 @@ export const PaymentScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { reservationData } = route.params;
   const [isLoading, setIsLoading] = useState(false);
+
+  const isHotel = reservationData?.type === 'hotel';
+  const hotelGuests = reservationData?.guests ?? { adults: 1, children: 0, rooms: 1 };
+  const hotelGuestDetailsInitial = useMemo((): HotelGuest[] => {
+    if (!isHotel || !reservationData?.guestDetails?.length) {
+      const total = (hotelGuests.adults ?? 1) + (hotelGuests.children ?? 0);
+      return Array.from({ length: total }, (_, i) =>
+        createEmptyGuest(i < (hotelGuests.adults ?? 1) ? 'adult' : 'child')
+      );
+    }
+    return reservationData.guestDetails;
+  }, [isHotel, reservationData?.guestDetails, hotelGuests.adults, hotelGuests.children]);
+  const [hotelGuestDetails, setHotelGuestDetails] = useState<HotelGuest[]>(hotelGuestDetailsInitial);
+
+  const guestSectionSubtitle = useMemo(() => {
+    if (!isHotel) return '';
+    const a = hotelGuests.adults ?? 0;
+    const c = hotelGuests.children ?? 0;
+    if (a > 0 && c > 0) return `${a} yetişkin, ${c} çocuk için bilgileri girin.`;
+    if (a > 0) return `${a} yetişkin için bilgileri girin.`;
+    if (c > 0) return `${c} çocuk için bilgileri girin.`;
+    return 'Misafir bilgilerini girin.';
+  }, [isHotel, hotelGuests.adults, hotelGuests.children]);
 
   const {
     control,
@@ -142,6 +167,19 @@ export const PaymentScreen: React.FC = () => {
           </View>
         </Card>
 
+        {isHotel && (
+          <Card style={styles.guestCard}>
+            <Text style={styles.sectionTitle}>Misafir Bilgileri</Text>
+            <Text style={styles.guestSubtitle}>{guestSectionSubtitle}</Text>
+            <GuestInfoSection
+              guests={hotelGuests}
+              guestDetails={hotelGuestDetails}
+              onChange={setHotelGuestDetails}
+              variant="payment"
+            />
+          </Card>
+        )}
+
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>Kart Bilgileri</Text>
 
@@ -224,6 +262,15 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     marginBottom: 24,
+  },
+  guestCard: {
+    marginBottom: 24,
+  },
+  guestSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: -8,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,

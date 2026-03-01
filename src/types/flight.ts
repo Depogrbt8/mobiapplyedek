@@ -37,4 +37,6 @@ export interface FlightSearchQuery {
   passengers: number;
   tripType: 'oneWay' | 'roundTrip';
   directOnly: boolean;
+  originAirport?: Airport; // Seçilen havaalanı bilgisi (şehir + kod için)
+  destinationAirport?: Airport; // Seçilen havaalanı bilgisi (şehir + kod için)
 } 

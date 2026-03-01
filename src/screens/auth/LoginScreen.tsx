@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Text, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,6 +27,7 @@ export const LoginScreen: React.FC = () => {
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     control,
@@ -42,7 +44,7 @@ export const LoginScreen: React.FC = () => {
       await login(data.email, data.password);
       // Navigation will be handled by AppNavigator based on auth state
     } catch (err: any) {
-      setError(formatErrorMessage(err));
+      setError(formatErrorMessage(err, 'login'));
     } finally {
       setIsLoading(false);
     }
@@ -75,8 +77,20 @@ export const LoginScreen: React.FC = () => {
             placeholder="Şifrenizi girin"
             control={control}
             name="password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             error={errors.password?.message}
+            rightIcon={
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={colors.gray[400]}
+                />
+              </TouchableOpacity>
+            }
           />
 
           {error && (

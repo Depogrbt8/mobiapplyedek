@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -51,7 +52,13 @@ export const ReservationScreen: React.FC = () => {
   const { selectedFlight } = useTravelStore();
   const [isLoading, setIsLoading] = useState(false);
 
-  const flight = selectedFlight || route.params?.flight;
+  const flightData = selectedFlight || route.params?.flight;
+  
+  // Gidiş-dönüş kontrolü
+  const isRoundTrip = flightData && typeof flightData === 'object' && 'tripType' in flightData && flightData.tripType === 'roundTrip';
+  const departureFlight = isRoundTrip && 'departure' in flightData ? flightData.departure : flightData;
+  const returnFlight = isRoundTrip && 'return' in flightData ? flightData.return : undefined;
+  const flight = departureFlight; // Geriye uyumluluk için
 
   // State management
   const [passengers, setPassengers] = useState({ adults: 1, children: 0, infants: 0 });
@@ -324,59 +331,76 @@ export const ReservationScreen: React.FC = () => {
   const taxes = baseTotalPrice * 0.1;
   const finalTotalPrice = baseTotalPrice + taxes + totalBaggagePrice;
 
+  // Status bar yüksekliğine göre sabit padding
+  const statusBarHeight = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      {/* Status bar için padding */}
+      <View style={{ height: statusBarHeight }} />
+      
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Flight Details */}
-        <FlightDetailsCard flight={flight} />
+        <View style={styles.sectionContainer}>
+          <FlightDetailsCard flight={departureFlight} returnFlight={returnFlight} />
+        </View>
 
         {/* Contact Form */}
-        <ContactForm
-          userEmail={contactEmail}
-          userPhone={contactPhone}
-          onEmailChange={setContactEmail}
-          onPhoneChange={setContactPhone}
-          onCountryCodeChange={setCountryCode}
-          countryCode={countryCode}
-          marketingConsent={marketingConsent}
-          onMarketingConsentChange={setMarketingConsent}
-        />
+        <View style={styles.sectionContainer}>
+          <ContactForm
+            userEmail={contactEmail}
+            userPhone={contactPhone}
+            onEmailChange={setContactEmail}
+            onPhoneChange={setContactPhone}
+            onCountryCodeChange={setCountryCode}
+            countryCode={countryCode}
+            marketingConsent={marketingConsent}
+            onMarketingConsentChange={setMarketingConsent}
+          />
+        </View>
 
         {/* Passenger List */}
-        <PassengerList
-          passengers={passengers}
-          passengerDetails={passengerDetails}
-          savedPassengers={savedPassengers}
-          flight={flight}
-          onSelectSavedPassenger={handleSelectSavedPassenger}
-          onPassengerFormChange={handlePassengerFormChange}
-          onSaveToggle={handleSaveToggle}
-        />
+        <View style={styles.sectionContainer}>
+          <PassengerList
+            passengers={passengers}
+            passengerDetails={passengerDetails}
+            savedPassengers={savedPassengers}
+            flight={flight}
+            onSelectSavedPassenger={handleSelectSavedPassenger}
+            onPassengerFormChange={handlePassengerFormChange}
+            onSaveToggle={handleSaveToggle}
+          />
+        </View>
 
         {/* Baggage Selection */}
-        <BaggageSelection
-          passengers={passengerDetails}
-          flight={flight}
-          onBaggageChange={handleBaggageChange}
-          baggageSelections={baggageSelections}
-        />
+        <View style={styles.sectionContainer}>
+          <BaggageSelection
+            passengers={passengerDetails}
+            flight={flight}
+            onBaggageChange={handleBaggageChange}
+            baggageSelections={baggageSelections}
+          />
+        </View>
 
         {/* Price Summary */}
-        <PriceSummary
-          totalPassengers={totalPassengers}
-          baseTotalPrice={baseTotalPrice}
-          totalBaggagePrice={totalBaggagePrice}
-          taxes={taxes}
-          finalTotalPrice={finalTotalPrice}
-          termsAccepted={termsAccepted}
-          bookingType={bookingType}
-          onTermsChange={setTermsAccepted}
-          onBookingTypeChange={setBookingType}
-          onProceedToPayment={handleProceedToPayment}
-        />
+        <View style={styles.sectionContainer}>
+          <PriceSummary
+            totalPassengers={totalPassengers}
+            baseTotalPrice={baseTotalPrice}
+            totalBaggagePrice={totalBaggagePrice}
+            taxes={taxes}
+            finalTotalPrice={finalTotalPrice}
+            termsAccepted={termsAccepted}
+            bookingType={bookingType}
+            onTermsChange={setTermsAccepted}
+            onBookingTypeChange={setBookingType}
+            onProceedToPayment={handleProceedToPayment}
+          />
+        </View>
       </ScrollView>
 
       {/* Validation Modal */}
@@ -417,11 +441,15 @@ export const ReservationScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.gray[50], // Hafif gri arka plan
   },
   content: {
-    padding: 8,
+    padding: 12,
+    paddingTop: 16,
     paddingBottom: 32,
+  },
+  sectionContainer: {
+    marginBottom: 12,
   },
   errorContainer: {
     flex: 1,

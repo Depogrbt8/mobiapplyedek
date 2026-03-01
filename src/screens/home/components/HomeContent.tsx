@@ -2,6 +2,8 @@ import React from 'react';
 import { ScrollView } from 'react-native';
 import { homeScreenStyles } from '../styles/homeScreenStyles';
 import { UserInfoCard } from './UserInfoCard';
+import { LastFlightSearchCard } from '@/modules/travel/components/LastFlightSearchCard';
+import { BannersSection } from './BannersSection';
 
 export const HomeContent: React.FC = () => {
   return (
@@ -15,9 +17,22 @@ export const HomeContent: React.FC = () => {
     >
       {/* Kullanıcı Bilgi Kartı */}
       <UserInfoCard />
+      
+      {/* Son Uçuş Aramam Kartı */}
+      <LastFlightSearchCard />
+      
+      {/* Banner'lar - Admin panelinden yüklenen */}
+      <BannersSection />
     </ScrollView>
   );
 };
+
+
+
+
+
+
+
 
 
 

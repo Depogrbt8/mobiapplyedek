@@ -17,6 +17,21 @@ interface DatePickerProps {
   disabled?: boolean;
   origin?: string;
   destination?: string;
+  containerStyle?: any;
+  inputStyle?: any;
+  /** Tarih gösterim formatı (default: 'dd MMM yyyy') */
+  dateFormat?: string;
+  /** Icon boyutu (default: 20) */
+  iconSize?: number;
+  /** Icon rengi (default: colors.gray[600]) */
+  iconColor?: string;
+  /** Metin stili override */
+  textStyle?: any;
+  // Range picker için
+  isRangePicker?: boolean;
+  checkIn?: Date | null;
+  checkOut?: Date | null;
+  onRangeChange?: (checkIn: Date | null, checkOut: Date | null) => void;
 }
 
 // Demo fiyat verisi (gerçek kullanımda API'den alınacak)
@@ -60,6 +75,12 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   disabled = false,
   origin,
   destination,
+  containerStyle,
+  inputStyle,
+  dateFormat = 'dd MMM yyyy',
+  iconSize = 20,
+  iconColor = colors.gray[600],
+  textStyle,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(
@@ -120,7 +141,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     setShowPicker(false);
   };
 
-  const displayValue = value ? format(value, 'dd MMM yyyy', { locale: tr }) : '';
+  const displayValue = value ? format(value, dateFormat, { locale: tr }) : '';
 
   // Custom day component with price
   const renderDay = (day: any) => {
@@ -150,15 +171,15 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {label && <Text style={[styles.label, disabled && styles.labelDisabled]}>{label}</Text>}
       <TouchableOpacity
         onPress={() => !disabled && setShowPicker(true)}
         disabled={disabled}
-        style={[styles.inputContainer, disabled && styles.inputContainerDisabled]}
+        style={[styles.inputContainer, inputStyle, disabled && styles.inputContainerDisabled]}
       >
-        <Ionicons name="calendar-outline" size={18} color={colors.text.primary} style={styles.icon} />
-        <Text style={[styles.inputText, !value && styles.placeholder, disabled && styles.inputTextDisabled]}>
+        <Ionicons name="calendar-outline" size={iconSize} color={iconColor} style={styles.icon} />
+        <Text style={[styles.inputText, !value && styles.placeholder, disabled && styles.inputTextDisabled, textStyle]} numberOfLines={1}>
           {displayValue || placeholder}
         </Text>
       </TouchableOpacity>
@@ -189,10 +210,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 }}
                 scrollEventThrottle={16}
               >
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((monthOffset) => {
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((monthOffset, index) => {
                   const monthDate = new Date();
                   monthDate.setMonth(monthDate.getMonth() + monthOffset);
-                  const monthKey = format(monthDate, 'yyyy-MM');
+                  const monthKey = `calendar-month-${index}-${format(monthDate, 'yyyy-MM')}`;
                   
                   return (
                     <View key={monthKey} style={styles.monthContainer}>
@@ -200,6 +221,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                         {format(monthDate, 'MMMM yyyy', { locale: tr })}
                       </Text>
                       <Calendar
+                        key={`calendar-${monthKey}`}
                         current={format(monthDate, 'yyyy-MM-01')}
                         minDate={minimumDate ? format(minimumDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')}
                         maxDate={maximumDate ? format(maximumDate, 'yyyy-MM-dd') : undefined}
@@ -232,7 +254,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                           textDayHeaderFontSize: 12,
                         }}
                         renderDay={(day, item) => {
-                          if (!day) return <View style={styles.emptyDay} />;
+                          if (!day) return <View key={`empty-${monthKey}-${day?.dateString || 'empty'}`} style={styles.emptyDay} />;
                           return renderDay(day);
                         }}
                       />
@@ -269,29 +291,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.gray[300],
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    height: 48,
-    maxWidth: '100%',
-    alignSelf: 'center',
-    width: '99.5%',
+    paddingLeft: 0,
+    paddingRight: 8,
+    paddingVertical: 0,
+    height: 40,
+    width: '100%',
+    position: 'relative',
+    justifyContent: 'flex-start',
   },
   inputContainerDisabled: {
     backgroundColor: colors.gray[100],
     opacity: 0.5,
   },
   icon: {
-    marginRight: 12,
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    zIndex: 1,
   },
   inputText: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.text.primary,
     textAlign: 'center',
+    paddingLeft: 26,
+    marginLeft: 0,
+    width: '100%',
   },
   placeholder: {
-    color: colors.gray[600],
+    color: colors.text.primary, // Desktop mobile: text-gray-900 (placeholder da aynı renkte)
   },
   inputTextDisabled: {
     color: colors.text.disabled,

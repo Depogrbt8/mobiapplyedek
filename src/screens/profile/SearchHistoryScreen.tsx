@@ -61,17 +61,17 @@ export const SearchHistoryScreen: React.FC = () => {
   };
 
   const handleSearch = (search: SearchHistory) => {
-    navigation.navigate('Travel' as never, {
-      screen: 'Travel/FlightSearch' as never,
-      params: {
+    navigation.navigate('Home' as never, {
+      service: 'flight',
+      searchParams: {
         origin: search.origin,
         destination: search.destination,
         departureDate: search.departureDate,
         returnDate: search.returnDate,
         passengers: search.passengers,
         tripType: search.tripType,
-      } as never,
-    });
+      },
+    } as never);
   };
 
   const renderHistoryItem = ({ item }: { item: SearchHistory }) => {

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { formatDate, formatTime } from '@/utils/format';
 import { colors } from '@/constants/colors';
+import { apiClient } from '@/core/api/client';
 
 const checkInSchema = z.object({
   bookingRef: z.string().min(1, 'Rezervasyon referansı girin'),
@@ -33,7 +34,7 @@ export const CheckInScreen: React.FC = () => {
   const onSubmit = async (data: CheckInFormData) => {
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/api/check-in', {
+      const response = await apiClient.post('/check-in', {
         bookingRef: data.bookingRef,
         lastName: data.lastName,
       });
@@ -273,4 +274,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-

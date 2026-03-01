@@ -15,15 +15,51 @@ import { colors } from '@/constants/colors';
 
 type NavigationProp = any;
 
-export const FlightSearchScreen: React.FC = () => {
+interface FlightSearchScreenProps {
+  initialParams?: {
+    origin?: string;
+    destination?: string;
+    departureDate?: string;
+    returnDate?: string;
+    passengers?: number;
+    tripType?: 'oneWay' | 'roundTrip';
+  };
+}
+
+export const FlightSearchScreen: React.FC<FlightSearchScreenProps> = ({ initialParams }) => {
   const navigation = useNavigation<NavigationProp>();
   const { setSearchQuery } = useTravelStore();
 
-  const [origin, setOrigin] = useState<Airport | null>(null);
-  const [destination, setDestination] = useState<Airport | null>(null);
-  const [departureDate, setDepartureDate] = useState<Date | null>(null);
-  const [returnDate, setReturnDate] = useState<Date | null>(null);
-  const [tripType, setTripType] = useState<'oneWay' | 'roundTrip'>('oneWay');
+  // Initial params'dan değerleri al ve parse et
+  const getInitialAirport = (code?: string): Airport | null => {
+    if (!code) return null;
+    // Mock airport data'dan bul
+    const mockAirports: Record<string, Airport> = {
+      'IST': { code: 'IST', name: 'İstanbul Havalimanı', city: 'İstanbul', country: 'Türkiye' },
+      'SAW': { code: 'SAW', name: 'Sabiha Gökçen', city: 'İstanbul', country: 'Türkiye' },
+      'ESB': { code: 'ESB', name: 'Esenboğa', city: 'Ankara', country: 'Türkiye' },
+      'ADB': { code: 'ADB', name: 'Adnan Menderes', city: 'İzmir', country: 'Türkiye' },
+      'AYT': { code: 'AYT', name: 'Antalya', city: 'Antalya', country: 'Türkiye' },
+      'BRU': { code: 'BRU', name: 'Brüksel', city: 'Brüksel', country: 'Belçika' },
+    };
+    return mockAirports[code] || null;
+  };
+
+  const [origin, setOrigin] = useState<Airport | null>(
+    initialParams?.origin ? getInitialAirport(initialParams.origin) : null
+  );
+  const [destination, setDestination] = useState<Airport | null>(
+    initialParams?.destination ? getInitialAirport(initialParams.destination) : null
+  );
+  const [departureDate, setDepartureDate] = useState<Date | null>(
+    initialParams?.departureDate ? new Date(initialParams.departureDate) : null
+  );
+  const [returnDate, setReturnDate] = useState<Date | null>(
+    initialParams?.returnDate ? new Date(initialParams.returnDate) : null
+  );
+  const [tripType, setTripType] = useState<'oneWay' | 'roundTrip'>(
+    initialParams?.tripType || 'oneWay'
+  );
   const [adultCount, setAdultCount] = useState(1);
   const [childCount, setChildCount] = useState(0);
   const [infantCount, setInfantCount] = useState(0);
@@ -48,6 +84,8 @@ export const FlightSearchScreen: React.FC = () => {
       passengers: totalPassengers,
       tripType,
       directOnly: false,
+      originAirport: origin, // Seçilen havaalanı bilgisini ekle
+      destinationAirport: destination, // Seçilen havaalanı bilgisini ekle
     };
 
     setSearchQuery(searchQuery);
@@ -91,8 +129,6 @@ export const FlightSearchScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      {/* Status bar için padding */}
-      <View style={{ height: statusBarHeight }} />
       
       <ScrollView
         style={styles.scrollView}
@@ -100,8 +136,10 @@ export const FlightSearchScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Trip Type Selector and Passenger Selector */}
-        <View style={styles.tripTypeRow}>
+        {/* Form Container with Border - Web sitesindeki gibi */}
+        <View style={styles.formContainer}>
+          {/* Trip Type Selector and Passenger Selector */}
+          <View style={styles.tripTypeRow}>
           <View style={styles.tripTypeContainer}>
             <TouchableOpacity
               style={[styles.tripTypeButton, tripType === 'oneWay' && styles.tripTypeButtonActive]}
@@ -151,6 +189,7 @@ export const FlightSearchScreen: React.FC = () => {
               onSelect={setOrigin}
               placeholder="Nereden"
               iconType="departure"
+              zIndex={20}
             />
           </View>
           <TouchableOpacity
@@ -164,12 +203,13 @@ export const FlightSearchScreen: React.FC = () => {
           >
             <Ionicons name="swap-vertical" size={20} color={colors.gray[500]} />
           </TouchableOpacity>
-          <View style={styles.airportInputWrapper}>
+          <View style={[styles.airportInputWrapper, styles.airportInputWrapperLower]}>
             <AirportSearchInput
               value={destination}
               onSelect={setDestination}
               placeholder="Nereye"
               iconType="arrival"
+              zIndex={10}
             />
           </View>
         </View>
@@ -196,45 +236,38 @@ export const FlightSearchScreen: React.FC = () => {
         </View>
 
 
-        {/* Search Button */}
-        <Button
-          title="Uçuş Ara"
-          onPress={handleSearch}
-          disabled={!isFormValid}
-          fullWidth
-          style={styles.searchButton}
-        />
+          {/* Search Button */}
+          <Button
+            title="Uçuş Ara"
+            onPress={handleSearch}
+            disabled={!isFormValid}
+            fullWidth
+            style={styles.searchButton}
+          />
 
-        {/* Demo Butonu - Test için */}
-        <TouchableOpacity
-          style={styles.demoButton}
-          onPress={() => {
-            const demoQuery: FlightSearchQuery = {
-              origin: 'IST',
-              destination: 'SAW',
-              departureDate: new Date().toISOString().split('T')[0],
-              passengers: 1,
-              tripType: 'oneWay',
-              directOnly: false,
-            };
-            setSearchQuery(demoQuery);
-
-            // FlightSearchScreen Home tab'ında render ediliyor
-            // Home tab'ı bir screen olduğu için tab navigator'a direkt erişemiyoruz
-            // CommonActions ile root navigator üzerinden Travel tab'ına ve içindeki stack'e navigate et
-            navigation.dispatch(
-              CommonActions.navigate({
-                name: 'Travel',
-                params: {
-                  screen: 'Travel/FlightResults',
-                  params: { searchParams: demoQuery },
-                },
-              } as any)
-            );
-          }}
-        >
-          <Text style={styles.demoButtonText}>📱 Demo: Sonuçları Göster</Text>
-        </TouchableOpacity>
+          {/* Test Butonu - Demo Uçuş Sonuçlarını Gör */}
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={() => {
+              const demoSearchParams: FlightSearchQuery = {
+                origin: 'IST',
+                destination: 'SAW',
+                departureDate: new Date().toISOString().split('T')[0],
+                passengers: 1,
+                tripType: 'oneWay',
+              };
+              navigation.dispatch(
+                CommonActions.navigate({
+                  name: 'Travel/FlightResults' as never,
+                  params: { searchParams: demoSearchParams } as never,
+                })
+              );
+            }}
+          >
+            <Ionicons name="eye-outline" size={16} color={colors.primary[600]} />
+            <Text style={styles.testButtonText}>Demo Uçuş Sonuçlarını Gör</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Service Buttons - Ana sitedeki gibi 2x2 grid */}
         <View style={styles.serviceButtonsContainer}>
@@ -297,14 +330,27 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 20, // Yuvarlak ikonlardan uzak
     paddingBottom: 32,
+  },
+  formContainer: {
+    backgroundColor: colors.background,
+    borderRadius: 16, // rounded-2xl (16px)
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    padding: 16, // p-4
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2, // Android için shadow-sm
+    marginBottom: 16,
   },
   tripTypeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   tripTypeContainer: {
     flexDirection: 'row',
@@ -356,9 +402,14 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
     position: 'relative',
+    zIndex: 1,
+    marginTop: 4,
   },
   airportInputWrapper: {
     width: '100%',
+  },
+  airportInputWrapperLower: {
+    zIndex: 1, // Nereye input'u daha düşük z-index'te
   },
   swapButton: {
     position: 'absolute',
@@ -373,37 +424,43 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.gray[300],
-    zIndex: 10,
+    zIndex: 50,
+    elevation: 10,
   },
   dateContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   dateInputWrapper: {
     flex: 1,
   },
   searchButton: {
-    marginTop: 8,
+    marginTop: 4,
   },
-  demoButton: {
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.secondary[500],
-    borderRadius: 8,
+  testButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.gray[50],
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    gap: 6,
   },
-  demoButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text.inverse,
+  testButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.primary[600],
   },
   serviceButtonsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 32,
+    marginTop: 16, // Uçuş Ara butonuna yaklaştırıldı
     marginBottom: 16,
   },
   serviceButton: {

@@ -93,8 +93,7 @@ export const BaggageSelection: React.FC<BaggageSelectionProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    padding: 12,
+    marginBottom: 0, // Parent container'da margin var
   },
   header: {
     flexDirection: 'row',

@@ -9,63 +9,87 @@ import { colors } from '@/constants/colors';
 
 interface FlightDetailsCardProps {
   flight: Flight;
+  returnFlight?: Flight; // Opsiyonel dönüş uçuşu
 }
 
-export const FlightDetailsCard: React.FC<FlightDetailsCardProps> = ({ flight }) => {
+export const FlightDetailsCard: React.FC<FlightDetailsCardProps> = ({ flight, returnFlight }) => {
   if (!flight) return null;
+
+  const isRoundTrip = !!returnFlight;
 
   const departureDate = flight.departureTime ? format(new Date(flight.departureTime), 'dd MMM yyyy', { locale: tr }) : '';
   const departureTime = flight.departureTime ? flight.departureTime.slice(11, 16) : '';
   const arrivalDate = flight.arrivalTime ? format(new Date(flight.arrivalTime), 'dd MMM yyyy', { locale: tr }) : '';
   const arrivalTime = flight.arrivalTime ? flight.arrivalTime.slice(11, 16) : '';
 
+  // Tek uçuş render fonksiyonu
+  const renderSingleFlight = (f: Flight, label?: string) => {
+    const depDate = f.departureTime ? format(new Date(f.departureTime), 'dd MMM yyyy', { locale: tr }) : '';
+    const depTime = f.departureTime ? f.departureTime.slice(11, 16) : '';
+    const arrDate = f.arrivalTime ? format(new Date(f.arrivalTime), 'dd MMM yyyy', { locale: tr }) : '';
+    const arrTime = f.arrivalTime ? f.arrivalTime.slice(11, 16) : '';
+
+    return (
+      <View key={f.id}>
+        {label && (
+          <Text style={styles.flightLabel}>{label}</Text>
+        )}
+        <View style={[styles.routeContainer, isRoundTrip && styles.routeContainerWithBorder]}>
+          {/* Origin */}
+          <View style={styles.airportContainer}>
+            <Text style={styles.airportCode}>{f.origin}</Text>
+            <View style={styles.dateTimeWrapper}>
+              <View style={styles.dateTimeRow}>
+                <Ionicons name="airplane-outline" size={14} color={colors.primary[600]} />
+                <Text style={styles.dateText}>{depDate}</Text>
+              </View>
+              <Text style={styles.timeText}>{depTime}</Text>
+            </View>
+          </View>
+
+          {/* Duration */}
+          <View style={styles.durationContainer}>
+            <Text style={styles.durationText}>{f.duration}</Text>
+            <View style={styles.directBadge}>
+              <Text style={styles.directText}>{f.direct ? 'Direkt' : 'Aktarmalı'}</Text>
+            </View>
+            <Text style={styles.airlineText}>{f.airlineName}</Text>
+          </View>
+
+          {/* Destination */}
+          <View style={styles.airportContainer}>
+            <Text style={styles.airportCode}>{f.destination}</Text>
+            <View style={styles.dateTimeWrapper}>
+              <View style={styles.dateTimeRow}>
+                <Text style={styles.dateText}>{arrDate}</Text>
+                <Ionicons name="airplane" size={14} color={colors.primary[600]} />
+              </View>
+              <Text style={styles.timeText}>{arrTime}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <Card style={styles.card}>
       <Text style={styles.title}>Uçuş Detayları</Text>
       
-      <View style={styles.routeContainer}>
-        {/* Origin */}
-        <View style={styles.airportContainer}>
-          <Text style={styles.airportCode}>{flight.origin}</Text>
-          <View style={styles.dateTimeContainer}>
-            <Ionicons name="airplane-outline" size={16} color={colors.primary[600]} />
-            <Text style={styles.dateText}>{departureDate}</Text>
-          </View>
-          <Text style={styles.timeText}>{departureTime}</Text>
+      {renderSingleFlight(flight, isRoundTrip ? 'Gidiş Uçuşu' : undefined)}
+      
+      {isRoundTrip && returnFlight && (
+        <View style={styles.returnFlightContainer}>
+          {renderSingleFlight(returnFlight, 'Dönüş Uçuşu')}
         </View>
-
-        {/* Duration */}
-        <View style={styles.durationContainer}>
-          <Text style={styles.durationText}>{flight.duration}</Text>
-          <View style={styles.directBadge}>
-            <Text style={styles.directText}>{flight.direct ? 'Direkt' : 'Aktarmalı'}</Text>
-          </View>
-        </View>
-
-        {/* Destination */}
-        <View style={styles.airportContainer}>
-          <Text style={styles.airportCode}>{flight.destination}</Text>
-          <View style={styles.dateTimeContainer}>
-            <Text style={styles.dateText}>{arrivalDate}</Text>
-            <Ionicons name="airplane" size={16} color={colors.primary[600]} />
-          </View>
-          <Text style={styles.timeText}>{arrivalTime}</Text>
-        </View>
-      </View>
-
-      <View style={styles.airlineContainer}>
-        <Text style={styles.airlineText}>
-          {flight.airlineName} - {flight.flightNumber}
-        </Text>
-      </View>
+      )}
     </Card>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    padding: 12,
+    marginBottom: 0, // Parent container'da margin var
   },
   title: {
     fontSize: 18,
@@ -92,24 +116,31 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: 8,
   },
-  dateTimeContainer: {
+  dateTimeWrapper: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  dateTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.text.secondary,
   },
   timeText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
-    color: colors.text.primary,
+    color: colors.text.secondary,
   },
   durationContainer: {
     alignItems: 'center',
+    flex: 1,
     minWidth: 80,
+    paddingHorizontal: 8,
   },
   durationText: {
     fontSize: 12,
@@ -122,18 +153,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
+    marginBottom: 4,
   },
   directText: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.primary[600],
   },
-  airlineContainer: {
-    marginTop: 8,
-  },
   airlineText: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.text.secondary,
+    marginTop: 4,
+  },
+  routeContainerWithBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    paddingBottom: 16,
+    marginBottom: 16,
+  },
+  flightLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  returnFlightContainer: {
+    marginTop: 16,
   },
 });
 

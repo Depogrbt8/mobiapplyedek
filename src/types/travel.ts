@@ -79,3 +79,11 @@ export type TabType = 'ucak' | 'otel' | 'arac' | 'esim';
 
 
 
+
+
+
+
+
+
+
+

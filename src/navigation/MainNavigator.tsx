@@ -1,5 +1,5 @@
-import React from 'react';
-import { Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Text, Keyboard } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,12 +16,17 @@ import {
   ReservationSuccessScreen,
   HotelSearchScreen,
   HotelResultsScreen,
+  HotelDetailsScreen,
   HotelReservationScreen,
+  HotelReservationSuccessScreen,
   CarSearchScreen,
   CarResultsScreen,
   CarReservationScreen,
   ThreeDSecureScreen,
 } from '@/modules/travel/screens';
+import { CarDetailsScreen } from '@/modules/travel/screens/CarDetailsScreen';
+import { CarBookingScreen } from '@/modules/travel/screens/CarBookingScreen';
+import { CarBookingSuccessScreen } from '@/modules/travel/screens/CarBookingSuccessScreen';
 import { ProfileScreen, AccountInfoScreen, SettingsScreen, ReservationsHistoryScreen, PassengersScreen, AddEditPassengerScreen, FavoritesScreen, SearchHistoryScreen, PriceAlertsScreen, BillingInfoScreen } from '@/screens/profile';
 import { MyTripsScreen } from '@/screens/profile/mytrips';
 import { PNRQueryScreen, CheckInScreen, CancelTicketScreen } from '@/screens/travel';
@@ -32,6 +37,7 @@ import { CustomHeaderLeft, CustomHeader } from '@/components/common';
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const TravelStackNav = createNativeStackNavigator<TravelStackParamList>();
 const ProfileStackNav = createNativeStackNavigator<ProfileStackParamList>();
+const OperationsStackNav = createNativeStackNavigator();
 
 // Placeholder screens for now
 const PlaceholderScreen = () => {
@@ -68,7 +74,6 @@ const TravelStack: React.FC = () => {
         name="Travel/HotelSearch"
         component={HotelSearchScreen}
         options={{ 
-          presentation: 'modal', // Aşağıdan açılacak
           headerShown: false,
         }}
       />
@@ -101,6 +106,11 @@ const TravelStack: React.FC = () => {
         options={{ title: 'Otel Sonuçları' }}
       />
       <TravelStackNav.Screen
+        name="Travel/HotelDetails"
+        component={HotelDetailsScreen}
+        options={{ title: 'Otel Detayları' }}
+      />
+      <TravelStackNav.Screen
         name="Travel/CarResults"
         component={CarResultsScreen}
         options={{ title: 'Araç Sonuçları' }}
@@ -109,6 +119,26 @@ const TravelStack: React.FC = () => {
         name="Travel/HotelReservation"
         component={HotelReservationScreen}
         options={{ title: 'Otel Rezervasyonu' }}
+      />
+      <TravelStackNav.Screen
+        name="Travel/HotelReservationSuccess"
+        component={HotelReservationSuccessScreen}
+        options={{ title: 'Rezervasyon Onaylandı', headerLeft: () => null }}
+      />
+      <TravelStackNav.Screen
+        name="Travel/CarDetails"
+        component={CarDetailsScreen}
+        options={{ title: 'Araç Detayları' }}
+      />
+      <TravelStackNav.Screen
+        name="Travel/CarBooking"
+        component={CarBookingScreen}
+        options={{ title: 'Araç Rezervasyonu' }}
+      />
+      <TravelStackNav.Screen
+        name="Travel/CarBookingSuccess"
+        component={CarBookingSuccessScreen}
+        options={{ title: 'Rezervasyon Onaylandı', headerLeft: () => null }}
       />
       <TravelStackNav.Screen
         name="Travel/CarReservation"
@@ -140,6 +170,22 @@ const TravelStack: React.FC = () => {
 };
 
 export const MainNavigator: React.FC = () => {
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
   let enabledModules: any[] = [];
   try {
     enabledModules = moduleRegistry?.getEnabledModules?.() || [];
@@ -163,6 +209,7 @@ export const MainNavigator: React.FC = () => {
           paddingBottom: 8,
           paddingTop: 8,
           height: 60,
+          display: isKeyboardVisible ? 'none' : 'flex',
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -177,38 +224,31 @@ export const MainNavigator: React.FC = () => {
           tabBarLabel: 'Ana Sayfa',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
       
-      {Array.isArray(enabledModules) && enabledModules.map((module) => {
-        if (module && module.id === 'travel') {
-          return (
-            <Tab.Screen
-              key={module.id}
-              name="Travel"
-              component={TravelStack}
-              options={{
-                tabBarLabel: module.name || 'Seyahat',
-                tabBarIcon: ({ color, size }) => (
-                  <Ionicons name="airplane" size={size} color={color} />
-                ),
-              }}
-            />
-          );
-        }
-        return null;
-      })}
+      <Tab.Screen
+        name="Operations"
+        component={OperationsStack}
+        options={{
+          tabBarLabel: 'İşlemler',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="briefcase-outline" size={size} color={color} />
+          ),
+        }}
+      />
       
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
         options={{
-          tabBarLabel: 'Profil',
+          tabBarLabel: 'Hesabım',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="person-circle" size={size} color={color} />
           ),
         }}
         listeners={({ navigation }) => ({
@@ -220,6 +260,70 @@ export const MainNavigator: React.FC = () => {
         })}
       />
     </Tab.Navigator>
+  );
+};
+
+// Operations Stack Navigator - İşlemler tab'ı için
+const OperationsStack: React.FC = () => {
+  return (
+    <OperationsStackNav.Navigator
+      initialRouteName="MyTrips"
+      screenOptions={({ navigation, route }: any) => {
+        if (!route || !navigation) {
+          return {
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary[600],
+            },
+            headerTintColor: colors.text.inverse,
+          };
+        }
+        
+        return {
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary[600],
+          },
+          headerTintColor: colors.text.inverse,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+          headerBackVisible: false,
+          headerBackTitleVisible: false,
+          headerLeft: () => null,
+          headerLeftContainerStyle: {
+            width: 0,
+            paddingLeft: 0,
+            marginLeft: 0,
+          },
+          headerTitle: () => {
+            if (!route || !route.name) {
+              return <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text.inverse }}>İşlemler</Text>;
+            }
+
+            const getTitle = (name: string) => {
+              const titles: Record<string, string> = {
+                MyTrips: 'Seyahatlerim',
+              };
+              return titles[name] || name;
+            };
+
+            const title = getTitle(route.name);
+            
+            if (route.name === 'MyTrips') {
+              return <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text.inverse }}>{title}</Text>;
+            }
+            return <CustomHeader title={title} showBackButton={true} />;
+          },
+        };
+      }}
+    >
+      <OperationsStackNav.Screen
+        name="MyTrips"
+        component={MyTripsScreen}
+        options={{ title: 'Seyahatlerim' }}
+      />
+    </OperationsStackNav.Navigator>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { flightService } from '../services/flightService';
 import type { Airport } from '@/types/flight';
@@ -11,6 +11,7 @@ interface AirportSearchInputProps {
   onSelect: (airport: Airport) => void;
   placeholder?: string;
   iconType?: 'departure' | 'arrival'; // Kalkış veya iniş ikonu
+  zIndex?: number; // Dinamik z-index için
 }
 
 export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
@@ -19,6 +20,7 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
   onSelect,
   placeholder = 'Havalimanı ara...',
   iconType = 'departure',
+  zIndex = 10,
 }) => {
   const [query, setQuery] = useState(value ? `${value.name} (${value.code})` : '');
   const [results, setResults] = useState<Airport[]>([]);
@@ -65,8 +67,11 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
     }
   };
 
+  const containerZIndex = showResults ? zIndex + 100 : zIndex;
+  const resultsZIndex = showResults ? zIndex + 200 : zIndex;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { zIndex: containerZIndex }]} collapsable={false}>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputContainer}>
         <View style={[styles.iconContainer, iconType === 'arrival' && styles.iconContainerArrival]}>
@@ -90,12 +95,15 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
         )}
       </View>
       {showResults && results.length > 0 && (
-        <View style={styles.resultsContainer}>
-          <FlatList
-            data={results}
-            keyExtractor={(item) => item.code}
-            renderItem={({ item }) => (
+        <View style={[styles.resultsContainer, { zIndex: resultsZIndex, elevation: resultsZIndex }]}>
+          <ScrollView
+            style={styles.resultsList}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+          >
+            {results.map((item) => (
               <TouchableOpacity
+                key={item.code}
                 style={styles.resultItem}
                 onPress={() => handleSelect(item)}
               >
@@ -104,11 +112,8 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
                   <Text style={styles.airportCode}>{item.code} • {item.city}</Text>
                 </View>
               </TouchableOpacity>
-            )}
-            style={styles.resultsList}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-          />
+            ))}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -118,7 +123,6 @@ export const AirportSearchInput: React.FC<AirportSearchInputProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    zIndex: 1,
     marginBottom: 4,
   },
   label: {
@@ -167,7 +171,7 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: colors.background,
+    backgroundColor: '#ffffff',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.gray[200],
@@ -175,10 +179,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 5,
-    zIndex: 1000,
   },
   resultsList: {
     maxHeight: 200,

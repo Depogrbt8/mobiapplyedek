@@ -78,7 +78,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
             />
             <TextInput
               style={styles.phoneInput}
-              placeholder="5XX XXX XX XX"
+              placeholder="Cep Telefonunuz"
               placeholderTextColor={colors.text.secondary}
               value={userPhone || ''}
               onChangeText={onPhoneChange}
@@ -117,8 +117,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
-    padding: 12,
+    marginBottom: 16, // İletişim ve Misafir bilgileri arası boşluk
   },
   header: {
     flexDirection: 'row',

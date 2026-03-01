@@ -20,9 +20,23 @@ export type TravelStackParamList = {
   'Travel/ReservationSuccess': { reservationId: string };
   'Travel/HotelSearch': undefined;
   'Travel/HotelResults': { searchParams: any };
-  'Travel/HotelReservation': { hotel?: any };
+  'Travel/HotelDetails': { hotelId: string; searchParams: any };
+  'Travel/HotelReservation': { hotel?: any; room?: any; rate?: any; searchParams?: any };
+  'Travel/HotelReservationSuccess': {
+    booking: any;
+    hotel: any;
+    room: any;
+    rate: any;
+    guest?: any;
+    guestDetails?: any;
+    guests?: { adults: number; children: number; rooms: number };
+    searchParams?: any;
+  };
   'Travel/CarSearch': undefined;
   'Travel/CarResults': { searchParams: any };
+  'Travel/CarDetails': { carId: string; searchToken: string; searchParams: any };
+  'Travel/CarBooking': { car: any; searchParams: any; searchToken: string; selectedInsurance: string | null; selectedExtras: Record<string, number> };
+  'Travel/CarBookingSuccess': { booking: any; searchParams: any };
   'Travel/CarReservation': { car?: any };
   'Travel/3DSecure': { redirectUrl: string; reservationId: string };
   'Travel/CheckIn': undefined;
@@ -65,10 +79,11 @@ export type ProfileStackParamList = {
 
 // Main Tab Navigator
 export type MainTabParamList = {
-  Home: undefined;
-  Travel: undefined;
+  Home: { service?: 'home' | 'flight' | 'hotel' | 'car' | 'esim'; searchParams?: any } | undefined;
+  // Travel: undefined; // Removed - Travel stack still exists but not in tab bar
   // Transfer: undefined; // gelecek
   // Games: undefined; // gelecek
+  Operations: undefined; // İşlemler tab'ı
   Profile: undefined;
   ReservationsHistory: undefined;
   Settings: undefined;

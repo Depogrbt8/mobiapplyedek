@@ -99,7 +99,7 @@ export const PassengerList: React.FC<PassengerListProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
+    marginBottom: 0, // Parent container'da margin var
   },
   header: {
     flexDirection: 'row',

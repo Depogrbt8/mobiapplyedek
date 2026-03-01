@@ -77,6 +77,8 @@ export const FlightSearchForm: React.FC<FlightSearchFormProps> = ({
       passengers: totalPassengers,
       tripType,
       directOnly: false,
+      originAirport: origin, // Seçilen havaalanı bilgisini ekle
+      destinationAirport: destination, // Seçilen havaalanı bilgisini ekle
     };
 
     // Save to search history

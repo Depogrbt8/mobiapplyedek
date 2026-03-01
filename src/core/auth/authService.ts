@@ -40,14 +40,42 @@ export const authService = {
   /**
    * Register new user
    */
-  async register(data: RegisterData): Promise<{ success: boolean; message: string }> {
-    // config.API_URL already includes '/api', so we only need '/auth/register'
-    const response = await apiClient.post('/auth/register', {
-      name: data.name,
-      email: data.email,
-      password: data.password,
-    });
-    return response.data;
+  async register(data: RegisterData): Promise<{ success: boolean; message: string; user?: User }> {
+    try {
+      // config.API_URL already includes '/api', so we only need '/auth/register'
+      const response = await apiClient.post('/auth/register', {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        countryCode: data.countryCode,
+        phone: data.phone,
+      });
+      
+      // If registration successful, store user data
+      if (response.data.success && response.data.user) {
+        await secureStorage.setUserData(JSON.stringify(response.data.user));
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      // E-posta zaten kayıtlı hatasını kontrol et
+      if (error?.response?.status === 400 || error?.response?.status === 409) {
+        const errorMessage = error?.response?.data?.message || error?.response?.data?.error || '';
+        if (
+          errorMessage.toLowerCase().includes('email') ||
+          errorMessage.toLowerCase().includes('e-posta') ||
+          errorMessage.toLowerCase().includes('already') ||
+          errorMessage.toLowerCase().includes('exists') ||
+          errorMessage.toLowerCase().includes('kayıt') ||
+          errorMessage.toLowerCase().includes('kayit')
+        ) {
+          throw new Error('Bu e-posta adresi daha önce kayıt edilmiş!');
+        }
+      }
+      // Diğer hataları olduğu gibi fırlat
+      throw error;
+    }
   },
 
   /**

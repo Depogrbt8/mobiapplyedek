@@ -1,5 +1,4 @@
 import { apiClient } from '@/core/api/client';
-import type { Flight } from '@/types/flight';
 
 interface CreateFlightReservationRequest {
   type: 'flight';
@@ -18,17 +17,9 @@ interface CreateFlightReservationRequest {
   currency: string;
 }
 
-interface CreateHotelReservationRequest {
-  type: 'hotel';
-  hotelId: string;
-  guest: any;
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  rooms: number;
-  amount: number;
-  currency: string;
-}
+// NOT: Otel rezervasyonları artık hotelBookingService üzerinden
+// POST /api/hotels/bookings ile yapılıyor (desktop ile aynı).
+// Bu dosyadaki createHotelReservation fonksiyonu backward compatibility için kalıyor.
 
 interface CreateCarReservationRequest {
   type: 'car';
@@ -77,25 +68,6 @@ export const reservationService = {
   },
 
   /**
-   * Create hotel reservation
-   */
-  async createHotelReservation(data: CreateHotelReservationRequest): Promise<ReservationResponse> {
-    const response = await apiClient.post<ReservationResponse>('/api/reservations', {
-      type: data.type,
-      hotelId: data.hotelId,
-      guest: data.guest,
-      checkIn: data.checkIn,
-      checkOut: data.checkOut,
-      guests: data.guests,
-      rooms: data.rooms,
-      amount: data.amount,
-      currency: data.currency,
-    });
-
-    return response.data;
-  },
-
-  /**
    * Create car reservation
    */
   async createCarReservation(data: CreateCarReservationRequest): Promise<ReservationResponse> {
@@ -130,6 +102,14 @@ export const reservationService = {
    */
   async getReservationDetails(reservationId: string): Promise<any> {
     const response = await apiClient.get(`/api/reservations/${reservationId}`);
+    return response.data;
+  },
+
+  /**
+   * Cancel reservation
+   */
+  async cancelReservation(reservationId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`/api/reservations/${reservationId}`);
     return response.data;
   },
 };

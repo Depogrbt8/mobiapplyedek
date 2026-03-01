@@ -1,63 +1,165 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Text, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import type { RouteProp } from '@react-navigation/native';
+import type { RouteProp as NavRouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Input } from '@/components/ui/Input';
+import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { formatCurrency, formatDate } from '@/utils/format';
-import { reservationService } from '../services/reservationService';
+import { ContactForm } from '../components/booking/ContactForm';
+import { GuestInfoSection, createEmptyGuest } from '../components/booking/GuestInfoSection';
+import { HotelPriceSummary } from '../components/booking/HotelPriceSummary';
+import { createBooking, calculateNights } from '../services/hotelService';
+import type { GuestInfo, HotelDetails, RoomType, Rate, HotelSearchParams, HotelGuest } from '../types/hotel';
 import type { TravelStackParamList } from '@/core/navigation/types';
 import { colors } from '@/constants/colors';
-import type { Hotel } from '../services/hotelService';
-import { Alert } from 'react-native';
+import { useAuthStore } from '@/store/authStore';
 
-type RouteProp = RouteProp<TravelStackParamList, 'Travel/HotelReservation'>;
+type HotelReservationRouteProp = NavRouteProp<TravelStackParamList, 'Travel/HotelReservation'>;
 type NavigationProp = NativeStackNavigationProp<TravelStackParamList, 'Travel/HotelReservation'>;
 
-const guestSchema = z.object({
-  firstName: z.string().min(2, 'Ad en az 2 karakter olmalı'),
-  lastName: z.string().min(2, 'Soyad en az 2 karakter olmalı'),
-  email: z.string().email('Geçerli bir e-posta adresi girin'),
-  phone: z.string().min(10, 'Telefon numarası geçerli değil'),
-});
-
-type GuestFormData = z.infer<typeof guestSchema>;
-
 export const HotelReservationScreen: React.FC = () => {
-  const route = useRoute<RouteProp>();
+  const route = useRoute<HotelReservationRouteProp>();
   const navigation = useNavigation<NavigationProp>();
-  const { hotel } = route.params;
+  const { hotel, room, rate, searchParams } = route.params as {
+    hotel: HotelDetails;
+    room: RoomType;
+    rate: Rate;
+    searchParams: HotelSearchParams;
+  };
+  const { user } = useAuthStore();
+
+  const guests = searchParams?.guests ?? { adults: 1, children: 0, rooms: 1 };
+  const totalGuests = guests.adults + guests.children;
+
+  const initialGuestDetails = useMemo(() => {
+    return Array.from({ length: totalGuests }, (_, i) =>
+      createEmptyGuest(i < guests.adults ? 'adult' : 'child')
+    );
+  }, [totalGuests, guests.adults]);
+
   const [isLoading, setIsLoading] = useState(false);
+  const [guestDetails, setGuestDetails] = useState<HotelGuest[]>(initialGuestDetails);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+90');
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<GuestFormData>({
-    resolver: zodResolver(guestSchema),
-  });
+  // İlk açılışta guestDetails'ı misafir sayısına göre doldur (route params değişirse)
+  useEffect(() => {
+    const nextTotal = (searchParams?.guests?.adults ?? 1) + (searchParams?.guests?.children ?? 0);
+    if (guestDetails.length !== nextTotal) {
+      setGuestDetails((prev) => {
+        if (prev.length >= nextTotal) return prev.slice(0, nextTotal);
+        const next = [...prev];
+        const adults = searchParams?.guests?.adults ?? 1;
+        for (let i = prev.length; i < nextTotal; i++) {
+          next.push(createEmptyGuest(i < adults ? 'adult' : 'child'));
+        }
+        return next.slice(0, nextTotal);
+      });
+    }
+  }, [searchParams?.guests?.adults, searchParams?.guests?.children]);
 
-  const onSubmit = async (data: GuestFormData) => {
+  // Kullanıcı bilgilerini otomatik doldur
+  useEffect(() => {
+    if (user) {
+      setContactEmail(user.email || '');
+      setContactPhone(user.phone || '');
+      if (guestDetails.length > 0) {
+        setGuestDetails((prev) => {
+          const next = [...prev];
+          next[0] = {
+            ...next[0],
+            firstName: user.firstName || next[0].firstName,
+            lastName: user.lastName || next[0].lastName,
+          };
+          return next;
+        });
+      }
+    }
+  }, [user]);
+
+  // Form validasyonu: tüm misafirler + iletişim + şartlar
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    const details = guestDetails.slice(0, totalGuests);
+
+    details.forEach((guest, idx) => {
+      if (!guest.firstName || guest.firstName.trim().length < 2) {
+        newErrors[`guest_${idx}_firstName`] = 'Ad en az 2 karakter olmalıdır';
+      }
+      if (!guest.lastName || guest.lastName.trim().length < 2) {
+        newErrors[`guest_${idx}_lastName`] = 'Soyad en az 2 karakter olmalıdır';
+      }
+    });
+
+    if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      newErrors.email = 'Geçerli bir e-posta adresi giriniz';
+    }
+    if (!contactPhone || contactPhone.trim().length < 10) {
+      newErrors.phone = 'Geçerli bir telefon numarası giriniz';
+    }
+    if (!agreedToTerms) {
+      newErrors.terms = 'Şartları kabul etmelisiniz';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    if (!hotel || !room || !rate || !searchParams) {
+      Alert.alert('Hata', 'Rezervasyon bilgileri eksik');
+      return;
+    }
+
+    const details = guestDetails.slice(0, totalGuests);
+    const contactInfo = {
+      email: contactEmail,
+      phone: contactPhone,
+      countryCode,
+    };
+    const guestInfoForApi: GuestInfo = {
+      firstName: details[0]?.firstName ?? '',
+      lastName: details[0]?.lastName ?? '',
+      email: contactEmail,
+      phone: contactPhone,
+      countryCode,
+    };
+
     setIsLoading(true);
     try {
-      const reservation = await reservationService.createHotelReservation({
-        type: 'hotel',
+      const bookingRequest = {
         hotelId: hotel.id,
-        guest: data,
-        checkIn: '', // Will be passed from search params
-        checkOut: '', // Will be passed from search params
-        guests: 1, // Will be passed from search params
-        rooms: 1, // Will be passed from search params
-        amount: hotel.price,
-        currency: hotel.currency,
-      });
-      navigation.navigate('Travel/Payment', {
-        reservationData: { reservation, hotel, guest: data, type: 'hotel' },
+        roomTypeId: room.id,
+        rateId: rate.id,
+        checkIn: searchParams.checkIn,
+        checkOut: searchParams.checkOut,
+        guests: searchParams.guests,
+        guestInfo: guestInfoForApi,
+        contactInfo,
+        guestDetails: details,
+        specialRequests: specialRequests || undefined,
+      };
+
+      const bookingResponse = await createBooking(bookingRequest);
+
+      navigation.navigate('Travel/HotelReservationSuccess', {
+        booking: bookingResponse,
+        hotel,
+        room,
+        rate,
+        guest: guestInfoForApi,
+        guestDetails: details,
+        guests: searchParams.guests,
+        searchParams,
       });
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'Rezervasyon oluşturulamadı');
@@ -66,81 +168,134 @@ export const HotelReservationScreen: React.FC = () => {
     }
   };
 
-  if (!hotel) {
+  if (!hotel || !room || !rate || !searchParams) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Otel bilgisi bulunamadı</Text>
+        <Text style={styles.errorText}>Rezervasyon bilgileri bulunamadı</Text>
         <Button title="Geri" onPress={() => navigation.goBack()} />
       </View>
     );
   }
+
+  const nights = calculateNights(searchParams.checkIn, searchParams.checkOut);
+  const totalPrice = rate.price * nights * searchParams.guests.rooms;
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.hotelSummary}>
-          <Text style={styles.sectionTitle}>Otel Özeti</Text>
-          <Text style={styles.hotelName}>{hotel.name}</Text>
-          <Text style={styles.hotelLocation}>{hotel.location}</Text>
-          <Text style={styles.hotelAddress}>{hotel.address}</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Toplam Tutar</Text>
-            <Text style={styles.price}>
-              {formatCurrency(hotel.price, hotel.currency)}
-            </Text>
-          </View>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        style={styles.scrollView}
+      >
+        {/* Fiyat Özeti - En Üstte Beyaz Arka Plan */}
+        <View style={styles.priceSummaryContainer}>
+          <HotelPriceSummary
+          hotelName={hotel.name}
+          roomName={room.name}
+          rateName={rate.name}
+          checkIn={searchParams.checkIn}
+          checkOut={searchParams.checkOut}
+          guests={searchParams.guests}
+          totalPrice={totalPrice}
+          currency={rate.currency}
+          hotelImage={hotel.images && hotel.images[0] ? hotel.images[0] : undefined}
+          hotelLocation={`${hotel.location.city}, ${hotel.location.country || 'Türkiye'}`}
+          />
+        </View>
+
+        {/* Form Alanları */}
+        <View style={styles.formsContainer}>
+          {/* İletişim Bilgileri */}
+          {!user && (
+            <View style={styles.loginHintContainer}>
+              <Text style={styles.loginHint}>
+                Hızlı rezervasyon için{' '}
+                <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
+                  giriş yap
+                </Text>
+              </Text>
+            </View>
+          )}
+          <ContactForm
+          userEmail={contactEmail}
+          userPhone={contactPhone}
+          onEmailChange={setContactEmail}
+          onPhoneChange={setContactPhone}
+          onCountryCodeChange={setCountryCode}
+          countryCode={countryCode}
+        />
+
+        {/* Misafir Bilgileri - Ana site mobil görünümü ile aynı (beyaz kart, yuvarlak cinsiyet) */}
+        <Card style={[styles.sectionCard, styles.guestInfoCard]}>
+          <Text style={styles.sectionTitle}>Misafir Bilgileri</Text>
+          <Text style={styles.guestSubtitle}>
+            {guests.children > 0
+              ? `${guests.adults} yetişkin, ${guests.children} çocuk için bilgileri girin.`
+              : `${guests.adults} yetişkin için bilgileri girin.`}
+          </Text>
+          <GuestInfoSection
+            guests={searchParams.guests}
+            guestDetails={guestDetails}
+            onChange={setGuestDetails}
+            errors={errors}
+            variant="payment"
+          />
         </Card>
 
-        <View style={styles.form}>
-          <Text style={styles.sectionTitle}>Misafir Bilgileri</Text>
-
-          <Input
-            label="Ad"
-            placeholder="Adınız"
-            control={control}
-            name="firstName"
-            autoCapitalize="words"
-            error={errors.firstName?.message}
+        {/* Özel İstekler */}
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Özel İstekler</Text>
+          <Text style={styles.specialRequestsHint}>
+            Özel istekleriniz garanti edilmez ancak otel elinizden geleni yapmaya çalışacaktır.
+          </Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Örn: Yüksek katta oda, erken check-in..."
+            placeholderTextColor={colors.text.secondary}
+            value={specialRequests}
+            onChangeText={setSpecialRequests}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
           />
+        </Card>
 
-          <Input
-            label="Soyad"
-            placeholder="Soyadınız"
-            control={control}
-            name="lastName"
-            autoCapitalize="words"
-            error={errors.lastName?.message}
-          />
+        {/* Şartlar ve Koşullar */}
+        <Card style={styles.sectionCard}>
+          <TouchableOpacity
+            style={styles.termsRow}
+            onPress={() => setAgreedToTerms(!agreedToTerms)}
+          >
+            <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+              {agreedToTerms && (
+                <Ionicons name="checkmark" size={16} color="#ffffff" />
+              )}
+            </View>
+            <Text style={styles.termsText}>
+              Rezervasyon koşullarını, gizlilik politikasını ve iptal kurallarını okudum ve kabul ediyorum.
+            </Text>
+          </TouchableOpacity>
+          {errors.terms && (
+            <Text style={styles.errorText}>{errors.terms}</Text>
+          )}
+        </Card>
 
-          <Input
-            label="E-posta"
-            placeholder="ornek@email.com"
-            control={control}
-            name="email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={errors.email?.message}
-          />
+        </View>
 
-          <Input
-            label="Telefon"
-            placeholder="5XX XXX XX XX"
-            control={control}
-            name="phone"
-            keyboardType="phone-pad"
-            error={errors.phone?.message}
-          />
-
+        {/* Ödeme Butonu */}
+        <View style={styles.submitButtonContainer}>
           <Button
-            title="Devam Et - Ödeme"
-            onPress={handleSubmit(onSubmit)}
+            title="Rezervasyonu Tamamla"
+            onPress={handleSubmit}
             loading={isLoading}
             fullWidth
             style={styles.submitButton}
           />
+          <Text style={styles.submitHint}>
+            Ödeme güvenli bağlantı üzerinden yapılacaktır
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -150,10 +305,21 @@ export const HotelReservationScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.gray[100],
+  },
+  scrollView: {
+    backgroundColor: colors.gray[100],
   },
   content: {
-    padding: 16,
+    paddingBottom: 16,
+  },
+  priceSummaryContainer: {
+    backgroundColor: colors.gray[100],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[200],
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   errorContainer: {
     flex: 1,
@@ -166,8 +332,25 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: 24,
   },
-  hotelSummary: {
-    marginBottom: 24,
+  sectionCard: {
+    marginBottom: 16,
+    marginTop: 0,
+    padding: 16,
+  },
+  guestInfoCard: {
+    marginTop: 8,
+  },
+  guestSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
@@ -175,44 +358,76 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: 16,
   },
-  hotelName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
-  hotelLocation: {
-    fontSize: 16,
-    color: colors.text.secondary,
-    marginBottom: 4,
-  },
-  hotelAddress: {
-    fontSize: 14,
-    color: colors.text.secondary,
+  loginHintContainer: {
     marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
-  },
-  priceLabel: {
-    fontSize: 16,
+  loginHint: {
+    fontSize: 13,
     color: colors.text.secondary,
   },
-  price: {
-    fontSize: 24,
-    fontWeight: '700',
+  loginLink: {
     color: colors.primary[600],
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
-  form: {
-    gap: 16,
+  specialRequestsHint: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginBottom: 12,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: colors.gray[300],
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text.primary,
+    backgroundColor: colors.background,
+    minHeight: 100,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.gray[300],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary[600],
+    borderColor: colors.primary[600],
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  formsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  submitButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+    backgroundColor: colors.background,
   },
   submitButton: {
-    marginTop: 24,
+    marginBottom: 12,
+  },
+  submitHint: {
+    fontSize: 12,
+    color: colors.gray[500],
+    textAlign: 'center',
   },
 });
 
